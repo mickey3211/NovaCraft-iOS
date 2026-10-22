@@ -22,13 +22,27 @@ input,select{width:100%;padding:13px;border-radius:12px;background:#0d1423;borde
 .notice{padding:13px;border-radius:12px;background:#15283a;border:1px solid #355b75;color:#b6d9f3;font-size:13px;line-height:1.5}
 .status{font-size:13px;color:#a4b4cd}.status strong{color:#e7f4ff}.hide{display:none!important}.log{font:12px ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;color:#a7c5dd;max-height:220px;overflow:auto}
 footer{font-size:12px;text-align:center;color:#7d8da8;padding-top:20px}a{color:#83dcff}
+
+/* Input and multiplayer prototype */
+.control-stage{height:390px;position:relative;border:1px solid #46617e;border-radius:18px;overflow:hidden;touch-action:none;background:linear-gradient(155deg,#26394e,#122136 55%,#172a27);user-select:none}
+.control-stage:before{content:"✦   NOVACRAFT  ·  PODGLĄD STEROWANIA";position:absolute;top:18px;left:12px;font-size:11px;letter-spacing:1px;color:#8ba8c5}
+.virtual-btn{position:absolute;display:grid;place-items:center;width:55px;height:55px;transform:translate(-50%,-50%);border-radius:15px;border:1px solid #87cfff9c;background:#183754d9;color:#e5f9ff;font-weight:800;touch-action:none;box-shadow:0 4px 15px #0007}
+.virtual-btn.pressed{background:#3aa7d7;color:#07131d;scale:1.06}
+.virtual-btn.editing{border:2px dashed #f7d66d;background:#5c4c2866}
+.virtual-btn.selected{outline:2px solid #fff;outline-offset:2px}
+.controls-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.controls-bar button{flex:1;min-width:105px}
+.chip{padding:7px 10px;border-radius:9px;background:#243650;border:1px solid #405777;font-size:12px;color:#c9dff7}
+.server-row{display:flex;align-items:center;gap:9px;padding:11px 0;border-bottom:1px solid #293a55}
+.server-row .address{overflow-wrap:anywhere;font-size:13px;color:#a9c2df}
+.server-row button{width:auto;flex-shrink:0;padding:9px}
+.kbd{display:inline-block;background:#25354d;border:1px solid #42546d;border-radius:5px;padding:2px 5px;font-size:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header><div class="brand"><div class="mark">✦</div><div><h1>NovaCraft</h1><small>JAVA LAUNCHER · iOS PROTOTYPE</small></div></div><span class="pill" id="online">● Gotowy</span></header>
 <section class="hero"><div class="eyebrow">Build 0.1.0 · Prototype</div><h2>Twój świat. Twoje zasady.</h2><p>Wybieraj wersje Minecraft Java, zarządzaj profilami i przygotuj swój przyszły launcher na iPhone'a.</p></section>
-<nav class="tabs" aria-label="Sekcje"><button class="tab active" data-tab="play">▶ Start</button><button class="tab" data-tab="versions">◈ Wersje</button><button class="tab" data-tab="settings">⚙ Ustawienia</button><button class="tab" data-tab="logs">☷ Logi</button></nav>
+<nav class="tabs" aria-label="Sekcje"><button class="tab active" data-tab="play">▶ Start</button><button class="tab" data-tab="versions">◈ Wersje</button><button class="tab" data-tab="settings">⚙ Ustawienia</button><button class="tab" data-tab="logs">☷ Logi</button><button class="tab" data-tab="controls">✥ Sterowanie</button><button class="tab" data-tab="devices">🎮 Urządzenia</button><button class="tab" data-tab="servers">🌐 Serwery</button><button class="tab" data-tab="account">♙ Konto</button></nav>
 <main>
 <section id="play">
 <div class="panel"><h3>Profil gracza</h3><div class="field"><label for="nickname">Nazwa profilu (lokalna, nie login Microsoft)</label><input id="nickname" maxlength="24" placeholder="Steve" autocomplete="off"></div>
@@ -40,6 +54,45 @@ footer{font-size:12px;text-align:center;color:#7d8da8;padding-top:20px}a{color:#
 <section id="versions" class="hide"><div class="panel"><h3>Oficjalne wersje Minecraft</h3><div class="field"><label for="searchVersion">Szukaj wersji</label><input id="searchVersion" placeholder="np. 1.21"></div><div class="field"><label for="versionType">Typ wydania</label><select id="versionType"><option value="release">Stabilne</option><option value="snapshot">Snapshoty</option><option value="all">Wszystkie</option></select></div><div class="status" id="versionCount"></div><div style="height:12px"></div><select id="versionBrowser" size="8" aria-label="Lista wersji" style="height:230px"></select><div style="height:12px"></div><button class="btn secondary" id="chooseVersion">Wybierz tę wersję</button><div style="height:12px"></div><button class="btn secondary" id="refreshVersions">Odśwież manifest</button></div></section>
 <section id="settings" class="hide"><div class="panel"><h3>Ustawienia launchera</h3><div class="field"><label for="ram">Docelowy limit RAM: <strong id="ramValue">1024 MB</strong></label><input id="ram" type="range" min="512" max="3072" step="256"></div><div class="field"><label for="renderer">Docelowy renderer (planowana funkcja)</label><select id="renderer"><option value="auto">Automatyczny</option><option value="metal">Metal (most graficzny)</option><option value="gles">OpenGL ES (most graficzny)</option></select></div><div class="field"><label><input type="checkbox" id="snapshots"> Pokaż snapshoty w menu startowym</label></div><button class="btn" id="saveSettings">Zapisz ustawienia</button><div style="height:12px"></div><div class="notice">Zmiana RAM lub renderera zapisuje wyłącznie preferencje. Nie wpływa jeszcze na uruchamianie gry.</div></div></section>
 <section id="logs" class="hide"><div class="panel"><h3>Dziennik aktywności</h3><div class="log" id="logOutput">Uruchomiono NovaCraft…</div><div style="height:12px"></div><button class="btn secondary" id="clearLogs">Wyczyść logi</button></div></section>
+
+<section id="controls" class="hide">
+ <div class="panel"><h3>Wirtualne sterowanie dotykowe</h3>
+ <p class="muted">Przeciągaj przyciski w trybie edycji. Układ jest zapisywany lokalnie na tym iPhonie. To symulator wejścia, a nie sterowanie uruchomioną grą.</p>
+ <div id="controlStage" class="control-stage" aria-label="Podgląd przycisków dotykowych"></div>
+ <div class="controls-bar"><button class="btn secondary" id="editControls">✎ Edytuj układ</button><button class="btn secondary" id="resetControls">↺ Resetuj</button></div>
+ <div class="field"><label for="controlAction">Funkcja wybranego przycisku</label><select id="controlAction"><option value="">Najpierw wybierz przycisk</option></select></div>
+ <div class="controls-bar"><button class="btn secondary" id="addControl">+ Dodaj przycisk</button><button class="btn secondary" id="removeControl">− Usuń wybrany</button></div>
+ <p class="status" id="touchStatus" aria-live="polite">Tryb podglądu</p></div>
+</section>
+<section id="devices" class="hide">
+ <div class="panel"><h3>Pad, klawiatura i mysz</h3>
+ <p class="muted">Test wykrywania urządzeń w przeglądarce. Dostępność zależy od iOS, Safari i urządzenia. W natywnej aplikacji potrzebna będzie integracja z Game Controller i wejściem systemowym.</p>
+ <div class="notice" id="gamepadStatus">🎮 Pad: sprawdzanie…</div><div style="height:12px"></div>
+ <button class="btn secondary" id="scanGamepads">Wykryj kontroler</button>
+ <div class="field"><label>Ostatni sygnał z klawiatury</label><div class="chip" id="keyboardStatus">Naciśnij klawisz po podłączeniu klawiatury</div></div>
+ <div class="field"><label>Ostatni sygnał z myszy</label><div class="chip" id="mouseStatus">Kliknij w pole testowe</div></div>
+ <div id="mouseTest" tabindex="0" class="notice" style="min-height:85px;display:grid;place-items:center;touch-action:none">Pole testowania kliknięć / ruchu wskaźnika</div>
+ <p class="status" id="deviceEvent">Nie wykryto zdarzeń wejścia.</p>
+ </div>
+</section>
+<section id="servers" class="hide">
+ <div class="panel"><h3>Ulubione serwery Java</h3>
+ <p class="muted">Zapisuj adresy serwerów i kopiuj je. Łączenie multiplayer będzie dostępne dopiero po stworzeniu silnika Minecraft Java i logowania.</p>
+ <div class="field"><label for="serverName">Nazwa serwera</label><input id="serverName" maxlength="50" placeholder="Mój serwer"></div>
+ <div class="field"><label for="serverAddress">Adres serwera</label><input id="serverAddress" maxlength="253" placeholder="play.example.net:25565" autocapitalize="none" spellcheck="false"></div>
+ <button class="btn" id="addServer">+ Dodaj serwer</button><div id="serverList" style="margin-top:16px"></div>
+ </div>
+</section>
+<section id="account" class="hide">
+ <div class="panel"><h3>Konto Microsoft</h3>
+ <div class="notice">🔒 Logowanie nie jest jeszcze zaimplementowane. Nie wpisuj hasła Microsoft w NovaCraft. Docelowo użyjemy oficjalnego OAuth z PKCE, bez przechowywania hasła, i sprawdzimy uprawnienia do Minecraft Java.</div>
+ <p class="muted">Stan: niezalogowany. Konto z zakupioną Minecraft Java Edition będzie wymagane do legalnego pobrania i uruchomienia gry.</p>
+ <button class="btn secondary" disabled>Połącz konto Microsoft — w przygotowaniu</button>
+ </div>
+ <div class="panel"><h3>Kompatybilność wersji</h3>
+ <p class="muted">NovaCraft odczytuje oficjalną listę wydań i snapshotów Minecraft. Wyświetlanie wersji nie oznacza jeszcze możliwości uruchomienia jej na iOS 27. Każda wersja będzie wymagała testów Java, LWJGL, grafiki i bibliotek.</p>
+ </div>
+</section>
 </main><footer>NovaCraft to niezależny prototyp. Minecraft © Mojang / Microsoft. Brak powiązania z właścicielem gry.</footer>
 </div>
 <script>
@@ -51,7 +104,7 @@ let settings={...defaults}, versions=[], logLines=[];
 try{settings={...defaults,...JSON.parse(localStorage.getItem(KEY)||"{}")}}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(settings))}catch(e){log("Nie udało się zapisać ustawień: "+e.message)}}
 function log(s){logLines.push("["+new Date().toLocaleTimeString("pl-PL")+"] "+s);logLines=logLines.slice(-100);$("logOutput").textContent=logLines.join("\n")}
-function tab(name){document.querySelectorAll(".tab").forEach(el=>el.classList.toggle("active",el.dataset.tab===name));["play","versions","settings","logs"].forEach(id=>$(id).classList.toggle("hide",id!==name))}
+function tab(name){document.querySelectorAll(".tab").forEach(el=>el.classList.toggle("active",el.dataset.tab===name));["play","versions","settings","logs","controls","devices","servers","account"].forEach(id=>$(id).classList.toggle("hide",id!==name))}
 document.querySelectorAll(".tab").forEach(el=>el.addEventListener("click",()=>tab(el.dataset.tab)));
 function updateSettingsUI(){$("nickname").value=settings.nickname;$("ram").value=settings.ram;$("ramValue").textContent=settings.ram+" MB";$("renderer").value=settings.renderer;$("snapshots").checked=settings.snapshots}
 function filtered(){return versions.filter(v=>(settings.snapshots||v.type==="release")&&(!settings.version||true))}
@@ -95,5 +148,111 @@ $("chooseVersion").addEventListener("click",()=>{const id=$("versionBrowser").va
 $("refreshVersions").addEventListener("click",loadVersions);
 $("clearLogs").addEventListener("click",()=>{logLines=[];log("Wyczyszczono dziennik")});
 updateSettingsUI();log("Uruchomiono NovaCraft v0.1");loadVersions();
+
+/* NovaCraft interactive input + multiplayer UI prototype */
+const EXTRA_KEY="novacraft-extras-v1";
+const ACTIONS=[["forward","↑"],["back","↓"],["left","←"],["right","→"],["jump","SKOK"],["sneak","KUC"],["sprint","BIEG"],["attack","ATAK"],["use","UŻYJ"],["inventory","EKW"],["chat","CZAT"],["pause","ESC"]];
+const ACTION_MAP=Object.fromEntries(ACTIONS);
+const DEFAULT_CONTROLS=[
+{id:"forward",action:"forward",x:19,y:58},{id:"back",action:"back",x:19,y:85},
+{id:"left",action:"left",x:9,y:72},{id:"right",action:"right",x:29,y:72},
+{id:"jump",action:"jump",x:85,y:68},{id:"attack",action:"attack",x:70,y:82},
+{id:"use",action:"use",x:88,y:88},{id:"inventory",action:"inventory",x:82,y:30},
+{id:"sneak",action:"sneak",x:65,y:58}
+];
+let extras={controls:DEFAULT_CONTROLS.map(x=>({...x})),servers:[]};
+try{
+ const raw=JSON.parse(localStorage.getItem(EXTRA_KEY)||"{}");
+ if(Array.isArray(raw.controls)&&raw.controls.length<=40)extras.controls=raw.controls.filter(c=>c&&typeof c.id==="string"&&ACTION_MAP[c.action]&&Number.isFinite(c.x)&&Number.isFinite(c.y)).map(c=>({...c,x:Math.max(5,Math.min(95,c.x)),y:Math.max(8,Math.min(92,c.y))}));
+ if(Array.isArray(raw.servers))extras.servers=raw.servers.filter(v=>v&&typeof v.name==="string"&&typeof v.address==="string").slice(0,50);
+}catch(e){log("Nieprawidłowe lokalne dane dodatków")}
+function saveExtras(){try{localStorage.setItem(EXTRA_KEY,JSON.stringify(extras))}catch(e){log("Błąd zapisu dodatków: "+e.message)}}
+let editing=false, selectedControl=null;
+function renderControls(){
+ const stage=$("controlStage");stage.replaceChildren();
+ extras.controls.forEach(c=>{
+ const b=document.createElement("button");b.type="button";b.className="virtual-btn"+(editing?" editing":"")+(selectedControl===c.id?" selected":"");
+ b.textContent=ACTION_MAP[c.action]||"?";b.style.left=c.x+"%";b.style.top=c.y+"%";b.setAttribute("aria-label",c.action);
+ b.addEventListener("pointerdown",ev=>{
+  ev.preventDefault();selectedControl=c.id;
+  if(editing){
+   try{b.setPointerCapture(ev.pointerId)}catch(e){}
+   b.classList.add("selected");$("touchStatus").textContent="Przeciągnij: "+c.action;
+  }else{b.classList.add("pressed");$("touchStatus").textContent="Wciśnięto: "+c.action;log("Dotyk: "+c.action)}
+  syncAction();
+ });
+ b.addEventListener("pointermove",ev=>{
+  if(!editing||!b.hasPointerCapture(ev.pointerId))return;
+  const rect=stage.getBoundingClientRect();
+  c.x=Math.max(8,Math.min(92,(ev.clientX-rect.left)/rect.width*100));
+  c.y=Math.max(10,Math.min(90,(ev.clientY-rect.top)/rect.height*100));
+  b.style.left=c.x+"%";b.style.top=c.y+"%";
+ });
+ b.addEventListener("pointerup",ev=>{b.classList.remove("pressed");if(editing)saveExtras()});
+ b.addEventListener("pointercancel",()=>b.classList.remove("pressed"));
+ stage.appendChild(b);
+ });
+ syncAction();
+}
+function syncAction(){
+ const c=extras.controls.find(v=>v.id===selectedControl);
+ const el=$("controlAction");el.replaceChildren();
+ el.add(new Option(c?"Zmień funkcję":"Wybierz przycisk",""));
+ ACTIONS.forEach(([v,label])=>el.add(new Option(label+" · "+v,v)));
+ el.value=c?c.action:"";
+}
+$("editControls").addEventListener("click",()=>{editing=!editing;$("editControls").textContent=editing?"✓ Zakończ edycję":"✎ Edytuj układ";$("touchStatus").textContent=editing?"Przeciągaj przyciski, aby zmienić ich pozycje":"Tryb podglądu";renderControls()});
+$("resetControls").addEventListener("click",()=>{extras.controls=DEFAULT_CONTROLS.map(x=>({...x}));selectedControl=null;saveExtras();renderControls();log("Przywrócono domyślny układ")});
+$("controlAction").addEventListener("change",ev=>{const c=extras.controls.find(v=>v.id===selectedControl);if(c&&ACTION_MAP[ev.target.value]){c.action=ev.target.value;saveExtras();renderControls()}});
+$("addControl").addEventListener("click",()=>{
+ if(extras.controls.length>=24)return alert("Limit: 24 przyciski");
+ const id="custom-"+Date.now().toString(36)+"-"+extras.controls.length;
+ extras.controls.push({id,action:"use",x:50,y:65});selectedControl=id;editing=true;$("editControls").textContent="✓ Zakończ edycję";saveExtras();renderControls();
+});
+$("removeControl").addEventListener("click",()=>{if(!selectedControl)return alert("Wybierz przycisk");extras.controls=extras.controls.filter(c=>c.id!==selectedControl);selectedControl=null;saveExtras();renderControls()});
+function renderServers(){
+ const root=$("serverList");root.replaceChildren();
+ if(!extras.servers.length){const p=document.createElement("p");p.className="muted";p.textContent="Brak zapisanych serwerów.";root.appendChild(p);return}
+ extras.servers.forEach((server,index)=>{
+ const row=document.createElement("div");row.className="server-row";
+ const body=document.createElement("div");body.style.flex="1";
+ const name=document.createElement("strong");name.textContent=server.name;
+ const address=document.createElement("div");address.className="address";address.textContent=server.address;
+ body.append(name,address);
+ const copy=document.createElement("button");copy.className="btn secondary";copy.textContent="Kopiuj";
+ copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(server.address);log("Skopiowano adres serwera")}catch(e){prompt("Skopiuj adres:",server.address)}});
+ const del=document.createElement("button");del.className="btn secondary";del.textContent="✕";del.setAttribute("aria-label","Usuń serwer "+server.name);
+ del.addEventListener("click",()=>{extras.servers.splice(index,1);saveExtras();renderServers()});
+ row.append(body,copy,del);root.appendChild(row);
+ });
+}
+$("addServer").addEventListener("click",()=>{
+ const name=$("serverName").value.trim(),address=$("serverAddress").value.trim();
+ if(!name||!address)return alert("Podaj nazwę i adres serwera");
+ if(!/^[a-zA-Z0-9._-]+(?::[0-9]{1,5})?$/.test(address)||address.length>253)return alert("Podaj prawidłową domenę lub adres IPv4, opcjonalnie z portem");
+ const port=address.split(":")[1];if(port&&(Number(port)<1||Number(port)>65535))return alert("Port musi mieścić się w zakresie 1–65535");
+ if(extras.servers.length>=50)return alert("Limit: 50 serwerów");
+ extras.servers.push({name,address});saveExtras();$("serverName").value="";$("serverAddress").value="";renderServers();log("Dodano serwer "+name);
+});
+function scanGamepads(){
+ const pads=typeof navigator.getGamepads==="function"?Array.from(navigator.getGamepads()).filter(Boolean):[];
+ $("gamepadStatus").textContent=pads.length?"🎮 Wykryto: "+pads.map(p=>p.id).join(", "):"🎮 Brak kontrolera lub Safari nie udostępnia Gamepad API";
+ if(pads.length){
+ const p=pads[0];const active=p.buttons.map((b,i)=>b.pressed?i:null).filter(i=>i!==null);
+ $("deviceEvent").textContent="Pad: przyciski ["+active.join(", ")+"]; osie: "+p.axes.map(x=>x.toFixed(2)).join(", ");
+ }
+}
+$("scanGamepads").addEventListener("click",scanGamepads);
+window.addEventListener("gamepadconnected",scanGamepads);
+window.addEventListener("gamepaddisconnected",scanGamepads);
+document.addEventListener("keydown",e=>{
+ if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;
+ $("keyboardStatus").textContent="Klawisz: "+e.key+" ("+e.code+")";
+});
+$("mouseTest").addEventListener("pointerdown",e=>{$("mouseStatus").textContent="Kliknięcie: "+(e.pointerType==="mouse"?"mysz":e.pointerType)+", przycisk "+e.button});
+$("mouseTest").addEventListener("pointermove",e=>{if(e.pointerType==="mouse")$("deviceEvent").textContent="Mysz: x="+Math.round(e.offsetX)+", y="+Math.round(e.offsetY)});
+renderControls();renderServers();scanGamepads();
+log("Załadowano edytor dotyku, obsługę wejścia i listę serwerów (prototyp)");
+
 </script>
 </body></html>
