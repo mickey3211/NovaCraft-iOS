@@ -8,14 +8,19 @@ An independent, from-scratch **Minecraft Java launcher UI prototype** built for 
 - [x] Official Minecraft version manifest (releases and snapshots)
 - [x] Local profiles and settings
 - [x] Version search and selection
+- [x] Draggable, editable touchscreen control layout (local demo)
+- [x] Gamepad detection using Gamepad API and keyboard/mouse input tester (browser support varies)
+- [x] Saved multiplayer server favorites and copy-address action (not game connections)
+- [x] Microsoft account UI explaining planned secure OAuth, without collecting credentials
 - [x] Status and activity log
 - [ ] Minecraft game file installer
-- [ ] Microsoft OAuth login and Minecraft entitlement check
+- [ ] Microsoft OAuth login and Minecraft entitlement check (NOT YET AVAILABLE)
 - [ ] Native SwiftUI iOS app / IPA
 - [ ] Java runtime, graphics bridge and touch input
 - [ ] Launching Minecraft Java on iOS
+- [ ] Actual gameplay input integration and multiplayer connections
 
-**Important:** This repository is currently a web UI prototype, **not** a functional Minecraft Java runtime. Clicking Play explains what remains to be implemented. Running Minecraft Java on iOS has significant technical and platform restrictions (JVM/JIT, graphics and signing). It is not guaranteed to work on iOS 27.
+**Important:** This repository is currently a web UI prototype, **not** a functional Minecraft Java runtime. Clicking Play explains what remains to be implemented. Touch controls, external input and server management are UI-level demonstrations and do not control Minecraft. Running Minecraft Java on iOS has significant technical and platform restrictions (JVM/JIT, graphics and signing). It is not guaranteed to work on iOS 27.
 
 ## Run
 
