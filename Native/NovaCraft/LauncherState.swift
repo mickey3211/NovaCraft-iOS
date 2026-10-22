@@ -8,6 +8,7 @@ final class LauncherState: ObservableObject {
     @Published var installed: Set<String> = []
     @Published var downloadProgress: Double = 0
     @Published var busy = false
+    @Published var refreshing = false
     @Published var message = "Gotowy"
     @Published var account: MinecraftAccount?
     @Published var servers: [SavedServer] = [] {
@@ -25,13 +26,22 @@ final class LauncherState: ObservableObject {
         Task { await refresh() }
     }
 
+    var selectedInstalled: Bool { installed.contains(selectedVersion) }
+
     func refresh() async {
+        guard !refreshing else { return }
+        refreshing = true
+        defer { refreshing = false }
         do {
             versions = try await installer.fetchVersions()
             installed = Set(versions.filter { installer.isInstalled($0.id) }.map(\.id))
-            if selectedVersion.isEmpty { selectedVersion = versions.first(where: { $0.type == "release" })?.id ?? "" }
-            message = "Pobrano listę wersji"
-        } catch { message = "Nie udało się pobrać manifestu: \(error.localizedDescription)" }
+            if !versions.contains(where: { $0.id == selectedVersion }) {
+                select(versions.first(where: { $0.type == "release" })?.id ?? "")
+            }
+            message = "Lista wersji zaktualizowana"
+        } catch {
+            message = "Nie udało się pobrać manifestu: \(error.localizedDescription)"
+        }
     }
 
     func select(_ id: String) {
@@ -40,17 +50,29 @@ final class LauncherState: ObservableObject {
     }
 
     func installSelected() async {
-        guard let version = versions.first(where: { $0.id == selectedVersion }) else { return }
+        guard !busy, let version = versions.first(where: { $0.id == selectedVersion }) else { return }
         busy = true
         downloadProgress = 0
+        message = "Pobieranie wersji \(version.id)…"
         defer { busy = false }
         do {
             try await installer.install(version: version) { [weak self] progress in
                 Task { @MainActor in self?.downloadProgress = progress }
             }
             installed.insert(version.id)
-            message = "Pobrano pliki klienta \(version.id) — nie oznacza to, że gra jest uruchamialna"
+            message = "Pobrano pliki klienta \(version.id). Do uruchomienia gry nadal brakuje JVM/LWJGL."
         } catch { message = "Błąd instalacji: \(error.localizedDescription)" }
+    }
+
+    func removeSelected() {
+        guard !busy, selectedInstalled else { return }
+        do {
+            try installer.remove(versionID: selectedVersion)
+            installed.remove(selectedVersion)
+            message = "Usunięto pobrane pliki wersji \(selectedVersion)"
+        } catch {
+            message = "Nie udało się usunąć plików: \(error.localizedDescription)"
+        }
     }
 
     func signIn() async {
@@ -66,10 +88,21 @@ final class LauncherState: ObservableObject {
         } catch { message = error.localizedDescription }
     }
 
-    func addServer(name: String, address: String) {
-        let clean = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty, !clean.isEmpty, clean.count <= 253 else { return }
-        servers.append(SavedServer(name: name, address: clean))
+    @discardableResult
+    func addServer(name: String, address: String) -> Bool {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanAddress = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !cleanName.isEmpty, cleanName.count <= 64,
+              !cleanAddress.isEmpty, cleanAddress.count <= 253,
+              !cleanAddress.contains(where: { $0.isWhitespace }),
+              !cleanAddress.contains("/"),
+              !servers.contains(where: { $0.address.lowercased() == cleanAddress }) else {
+            message = "Sprawdź nazwę i adres serwera (lub usuń duplikat)."
+            return false
+        }
+        servers.append(SavedServer(name: cleanName, address: cleanAddress))
+        message = "Zapisano serwer \(cleanName)"
+        return true
     }
 }
 
