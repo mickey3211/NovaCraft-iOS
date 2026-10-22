@@ -52,6 +52,14 @@ final class MinecraftInstaller {
         return FileManager.default.fileExists(atPath: base.appendingPathComponent("versions/\(safe)/client.jar").path)
     }
 
+    func remove(versionID: String) throws {
+        let folder = base.appendingPathComponent("versions", isDirectory: true)
+            .appendingPathComponent(safeID(versionID), isDirectory: true)
+        if FileManager.default.fileExists(atPath: folder.path) {
+            try FileManager.default.removeItem(at: folder)
+        }
+    }
+
     func fetchVersions() async throws -> [MinecraftVersion] {
         let url = URL(string: "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json")!
         let data = try await fetchData(url)
