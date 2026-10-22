@@ -1,0 +1,53 @@
+name: Build unsigned iPhone IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-unsigned-ipa:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Compile for physical iOS devices (unsigned)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project NovaCraft.xcodeproj \
+            -scheme NovaCraft \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/ipa/Payload" dist
+          ditto "$APP" "$RUNNER_TEMP/ipa/Payload/NovaCraft.app"
+          cd "$RUNNER_TEMP/ipa"
+          zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-UNSIGNED.ipa" Payload
+          test -s "$GITHUB_WORKSPACE/dist/NovaCraft-UNSIGNED.ipa"
+
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-unsigned-iPhone-IPA
+          path: dist/NovaCraft-UNSIGNED.ipa
+          retention-days: 7
+          if-no-files-found: error
