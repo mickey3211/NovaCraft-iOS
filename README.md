@@ -2,6 +2,10 @@
 
 An independent, from-scratch **Minecraft Java launcher UI prototype** built for mobile Safari on iPhone.
 
+## Native iOS implementation
+
+The repository now contains a native SwiftUI app foundation under `Native/NovaCraft`, an XcodeGen `project.yml`, a manually triggered simulator build workflow and setup instructions in [docs/NATIVE_SETUP.md](docs/NATIVE_SETUP.md). It is **source code, not a built IPA or a working Java runtime**. Microsoft login needs an app registration and has not been tested on device. The installer currently downloads the verified client JAR and version JSON only, not the full game assets/libraries.
+
 ## Status
 
 - [x] Mobile-friendly launcher interface
@@ -13,9 +17,13 @@ An independent, from-scratch **Minecraft Java launcher UI prototype** built for 
 - [x] Saved multiplayer server favorites and copy-address action (not game connections)
 - [x] Microsoft account UI explaining planned secure OAuth, without collecting credentials
 - [x] Status and activity log
-- [ ] Minecraft game file installer
+- [x] Native SwiftUI app source scaffold (not compiled or signed)
+- [x] Partial Minecraft installer: verified client JAR + version JSON
+- [x] Microsoft OAuth PKCE/Xbox/XSTS/entitlement code (configuration and testing required)
+- [x] Native GameController input adapter and touch overlay (not connected to Java)
+- [ ] Complete Minecraft game file installer
 - [ ] Microsoft OAuth login and Minecraft entitlement check (NOT YET AVAILABLE)
-- [ ] Native SwiftUI iOS app / IPA
+- [ ] Signed, tested native iOS IPA
 - [ ] Java runtime, graphics bridge and touch input
 - [ ] Launching Minecraft Java on iOS
 - [ ] Actual gameplay input integration and multiplayer connections
