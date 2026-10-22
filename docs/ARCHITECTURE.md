@@ -8,6 +8,10 @@ Single-file HTML/CSS/JS, designed for mobile Safari:
 - Store nickname, selected version and future runtime preferences in localStorage.
 - Show meaningful runtime status and errors.
 - Explicitly avoid pretending to launch Minecraft.
+- Editable touch-control overlay with draggable buttons and local persistence.
+- Browser-level gamepad detection and keyboard/mouse event testing (hardware-dependent).
+- Saved multiplayer server addresses (no live server connection yet).
+- Microsoft account placeholder with no credential collection.
 
 No authentication or game runtime exists yet.
 
@@ -33,6 +37,11 @@ NovaCraft/
     JavaRuntimeBridge.swift
     GraphicsBridge.swift
     TouchControls.swift
+    ControllerInputBridge.swift
+    KeyboardMouseBridge.swift
+  Multiplayer/
+    ServerListStore.swift
+    JavaServerConnector.swift
   Models/
     MinecraftVersion.swift
     LauncherProfile.swift
@@ -43,6 +52,8 @@ NovaCraft/
 - Use Microsoft authorization code + PKCE through an approved sign-in flow. Verify game ownership.
 - Validate every download against official metadata; handle filesystem sandboxing.
 - Separate UI from runtime bridge with testable interfaces.
+- Use Apple GameController framework for supported controllers and UIKit input APIs for keyboard/pointer input; actual Minecraft bindings depend on the game runtime.
+- Multiplayer must be implemented inside a functioning Java client; a saved address is not a connection to a server.
 
 ## Phase 3: Minecraft runtime research
 
