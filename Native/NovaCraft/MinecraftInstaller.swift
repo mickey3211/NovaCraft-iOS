@@ -16,9 +16,45 @@ private struct DownloadInfo: Decodable {
     let sha1: String
     let size: Int64?
 }
+
+private struct Library: Decodable {
+    let downloads: LibraryDownloads?
+    let rules: [LibraryRule]?
+}
+
+private struct LibraryDownloads: Decodable {
+    let artifact: LibraryArtifact?
+}
+
+private struct LibraryArtifact: Decodable {
+    let path: String
+    let url: URL
+    let sha1: String
+    let size: Int64?
+}
+
+private struct LibraryRule: Decodable {
+    let action: String
+    let os: LibraryOS?
+}
+
+private struct LibraryOS: Decodable {
+    let name: String?
+}
+
 private struct VersionDetail: Decodable {
     let downloads: [String: DownloadInfo]
     let assetIndex: DownloadInfo?
+    let libraries: [Library]?
+}
+
+private struct AssetIndex: Decodable {
+    let objects: [String: AssetObject]
+}
+
+private struct AssetObject: Decodable {
+    let hash: String
+    let size: Int64
 }
 
 enum InstallError: LocalizedError {
@@ -26,21 +62,23 @@ enum InstallError: LocalizedError {
     case badHTTP(Int)
     case checksumMismatch
     case invalidFile
+
     var errorDescription: String? {
         switch self {
         case .invalidManifest: return "Nieprawidłowy manifest Minecraft"
         case .badHTTP(let status): return "Błąd pobierania HTTP \(status)"
         case .checksumMismatch: return "Nieprawidłowa suma kontrolna pobranego pliku"
-        case .invalidFile: return "Brak pliku klienta w manifeście"
+        case .invalidFile: return "Nieprawidłowy plik lub ścieżka pobierania"
         }
     }
 }
 
-/// Downloads a verified client JAR and version JSON from Mojang.
-/// Does NOT yet install libraries, natives, asset objects or a Java runtime.
+/// Pobiera pliki klienta, biblioteki Java i zasoby Minecraft.
+/// Nie instaluje JVM ani bibliotek natywnych LWJGL dla iOS i nie uruchamia gry.
 final class MinecraftInstaller {
     private let session: URLSession = .shared
     private let base: URL
+    private let fm = FileManager.default
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -48,16 +86,17 @@ final class MinecraftInstaller {
     }
 
     func isInstalled(_ id: String) -> Bool {
-        let safe = safeID(id)
-        return FileManager.default.fileExists(atPath: base.appendingPathComponent("versions/\(safe)/client.jar").path)
+        let folder = versionFolder(id)
+        return fm.fileExists(atPath: folder.appendingPathComponent("install-complete").path)
+            && fm.fileExists(atPath: folder.appendingPathComponent("client.jar").path)
     }
 
     func remove(versionID: String) throws {
-        let folder = base.appendingPathComponent("versions", isDirectory: true)
-            .appendingPathComponent(safeID(versionID), isDirectory: true)
-        if FileManager.default.fileExists(atPath: folder.path) {
-            try FileManager.default.removeItem(at: folder)
+        let folder = versionFolder(versionID)
+        if fm.fileExists(atPath: folder.path) {
+            try fm.removeItem(at: folder)
         }
+        // Wspólne biblioteki i assety są współdzielone między wersjami.
     }
 
     func fetchVersions() async throws -> [MinecraftVersion] {
@@ -67,35 +106,121 @@ final class MinecraftInstaller {
     }
 
     func install(version: MinecraftVersion, progress: @escaping @Sendable (Double) -> Void) async throws {
-        guard version.url.scheme == "https", version.url.host == "piston-meta.mojang.com" else {
+        guard isTrusted(version.url, hosts: ["piston-meta.mojang.com"]) else {
             throw InstallError.invalidManifest
         }
+
         let json = try await fetchData(version.url)
         let detail = try JSONDecoder().decode(VersionDetail.self, from: json)
-        guard let client = detail.downloads["client"] else { throw InstallError.invalidFile }
-        guard client.url.scheme == "https", ["piston-data.mojang.com", "launcher.mojang.com"].contains(client.url.host ?? "") else {
+        guard let client = detail.downloads["client"],
+              let assetIndex = detail.assetIndex,
+              isTrusted(client.url, hosts: ["piston-data.mojang.com", "launcher.mojang.com"]),
+              isTrusted(assetIndex.url, hosts: ["piston-meta.mojang.com", "launchermeta.mojang.com"]) else {
             throw InstallError.invalidManifest
         }
-        let folder = base.appendingPathComponent("versions", isDirectory: true)
-            .appendingPathComponent(safeID(version.id), isDirectory: true)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        progress(0.1)
-        let (temporary, response) = try await session.download(from: client.url)
+
+        let folder = versionFolder(version.id)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let complete = folder.appendingPathComponent("install-complete")
+        if fm.fileExists(atPath: complete.path) { try fm.removeItem(at: complete) }
+        progress(0.02)
+
+        try await downloadVerified(url: client.url, sha1: client.sha1, size: client.size,
+                                   destination: folder.appendingPathComponent("client.jar"))
+        progress(0.12)
+
+        // Pomijamy biblioteki przypisane do Windows, Linux i macOS.
+        // Biblioteki natywne tych systemów nie działają na iOS.
+        let libraries = (detail.libraries ?? []).filter(libraryAllowed).compactMap { $0.downloads?.artifact }
+        for (index, artifact) in libraries.enumerated() {
+            try Task.checkCancellation()
+            guard isTrusted(artifact.url, hosts: ["libraries.minecraft.net"]),
+                  let components = safeComponents(artifact.path) else {
+                throw InstallError.invalidManifest
+            }
+            let destination = components.reduce(base.appendingPathComponent("libraries", isDirectory: true)) {
+                $0.appendingPathComponent($1)
+            }
+            try await downloadVerified(url: artifact.url, sha1: artifact.sha1,
+                                       size: artifact.size, destination: destination)
+            progress(0.12 + 0.38 * Double(index + 1) / Double(max(libraries.count, 1)))
+        }
+        progress(0.50)
+
+        let indexFolder = base.appendingPathComponent("assets/indexes", isDirectory: true)
+        let indexPath = indexFolder.appendingPathComponent(safeID(version.id) + ".json")
+        try await downloadVerified(url: assetIndex.url, sha1: assetIndex.sha1,
+                                   size: assetIndex.size, destination: indexPath)
+        let indexData = try Data(contentsOf: indexPath)
+        let index = try JSONDecoder().decode(AssetIndex.self, from: indexData)
+        let objects = Array(Set(index.objects.values.map { $0.hash })).sorted()
+        let assetInfo = Dictionary(index.objects.values.map { ($0.hash, $0.size) }, uniquingKeysWith: { first, _ in first })
+
+        for (position, hash) in objects.enumerated() {
+            try Task.checkCancellation()
+            guard isSHA1(hash), let size = assetInfo[hash] else { throw InstallError.invalidManifest }
+            let prefix = String(hash.prefix(2))
+            let url = URL(string: "https://resources.download.minecraft.net/\(prefix)/\(hash)")!
+            let destination = base.appendingPathComponent("assets/objects", isDirectory: true)
+                .appendingPathComponent(prefix, isDirectory: true)
+                .appendingPathComponent(hash)
+            try await downloadVerified(url: url, sha1: hash, size: size, destination: destination)
+            progress(0.50 + 0.49 * Double(position + 1) / Double(max(objects.count, 1)))
+        }
+
+        try json.write(to: folder.appendingPathComponent("version.json"), options: .atomic)
+        try Data("ok".utf8).write(to: complete, options: .atomic)
+        progress(1)
+    }
+
+    /// Pobieranie na dysk, sprawdzanie SHA-1 i ponowne wykorzystanie poprawnych plików.
+    private func downloadVerified(url: URL, sha1: String, size: Int64?,
+                                  destination: URL) async throws {
+        guard url.scheme == "https", isSHA1(sha1) else { throw InstallError.invalidManifest }
+        if fm.fileExists(atPath: destination.path),
+           (try? verify(file: destination, sha1: sha1, size: size)) == true {
+            return
+        }
+
+        try Task.checkCancellation()
+        try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let (temporary, response) = try await session.download(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw InstallError.badHTTP((response as? HTTPURLResponse)?.statusCode ?? 0)
         }
-        progress(0.75)
-        let bytes = try Data(contentsOf: temporary)
-        if let size = client.size, Int64(bytes.count) != size { throw InstallError.invalidFile }
-        let actual = Insecure.SHA1.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-        guard actual.caseInsensitiveCompare(client.sha1) == .orderedSame else {
+        guard try verify(file: temporary, sha1: sha1, size: size) else {
             throw InstallError.checksumMismatch
         }
-        let destination = folder.appendingPathComponent("client.jar")
-        if FileManager.default.fileExists(atPath: destination.path) { try FileManager.default.removeItem(at: destination) }
-        try FileManager.default.moveItem(at: temporary, to: destination)
-        try json.write(to: folder.appendingPathComponent("version.json"), options: .atomic)
-        progress(1)
+        try Task.checkCancellation()
+        if fm.fileExists(atPath: destination.path) { try fm.removeItem(at: destination) }
+        try fm.moveItem(at: temporary, to: destination)
+    }
+
+    private func verify(file: URL, sha1: String, size: Int64?) throws -> Bool {
+        let handle = try FileHandle(forReadingFrom: file)
+        defer { try? handle.close() }
+        var hasher = Insecure.SHA1()
+        var length: Int64 = 0
+        while true {
+            let chunk = try handle.read(upToCount: 1024 * 1024) ?? Data()
+            if chunk.isEmpty { break }
+            length += Int64(chunk.count)
+            hasher.update(data: chunk)
+        }
+        if let size = size, length != size { return false }
+        let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return actual.caseInsensitiveCompare(sha1) == .orderedSame
+    }
+
+    private func libraryAllowed(_ library: Library) -> Bool {
+        guard let rules = library.rules else { return true }
+        var allowed = false
+        for rule in rules {
+            // Reguły dla desktopowych OS nie dotyczą iOS.
+            if rule.os?.name != nil { continue }
+            allowed = rule.action == "allow"
+        }
+        return allowed
     }
 
     private func fetchData(_ url: URL) async throws -> Data {
@@ -104,6 +229,30 @@ final class MinecraftInstaller {
             throw InstallError.badHTTP((response as? HTTPURLResponse)?.statusCode ?? 0)
         }
         return data
+    }
+
+    private func versionFolder(_ id: String) -> URL {
+        base.appendingPathComponent("versions", isDirectory: true)
+            .appendingPathComponent(safeID(id), isDirectory: true)
+    }
+
+    private func isTrusted(_ url: URL, hosts: Set<String>) -> Bool {
+        url.scheme == "https" && hosts.contains(url.host ?? "")
+    }
+
+    private func isSHA1(_ hash: String) -> Bool {
+        hash.count == 40 && hash.unicodeScalars.allSatisfy {
+            CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
+        }
+    }
+
+    private func safeComponents(_ path: String) -> [String]? {
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        guard !parts.isEmpty, parts.allSatisfy({ part in
+            !part.isEmpty && part != "." && part != ".." && !part.contains("\\")
+                && !part.contains(":") && !part.contains("\0")
+        }) else { return nil }
+        return parts
     }
 
     private func safeID(_ value: String) -> String {
