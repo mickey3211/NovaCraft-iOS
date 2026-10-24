@@ -60,7 +60,7 @@ final class LauncherState: ObservableObject {
                 Task { @MainActor in self?.downloadProgress = progress }
             }
             installed.insert(version.id)
-            message = "Pobrano pliki klienta \(version.id). Do uruchomienia gry nadal brakuje JVM/LWJGL."
+            message = "Pobrano klienta, biblioteki Java i zasoby wersji \(version.id). Do uruchomienia gry nadal brakuje JVM i grafiki LWJGL na iOS."
         } catch { message = "Błąd instalacji: \(error.localizedDescription)" }
     }
 
