@@ -8,6 +8,7 @@
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>1.0.0</string>
 <key>CFBundleVersion</key><string>1</string>
+<key>MicrosoftClientID</key><string>YOUR_MICROSOFT_CLIENT_ID</string>
 <key>CFBundleURLTypes</key><array><dict>
 <key>CFBundleURLName</key><string>pl.novacraft.launcher.auth</string>
 <key>CFBundleURLSchemes</key><array><string>novacraft</string></array>
