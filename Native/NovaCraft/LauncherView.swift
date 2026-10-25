@@ -63,13 +63,19 @@ struct LauncherView: View {
                                 .font(.headline)
                             Label("Profil Minecraft Java zweryfikowany", systemImage: "checkmark.shield.fill")
                                 .foregroundStyle(.green)
+                            Button("Wyloguj", role: .destructive) { state.signOut() }
                         } else {
                             Label("Nie zalogowano", systemImage: "person.crop.circle.badge.questionmark")
                             Button {
                                 Task { await state.signIn() }
                             } label: {
-                                Label("Zaloguj przez Microsoft", systemImage: "person.badge.key.fill")
+                                if state.signingIn {
+                                    ProgressView("Logowanie…")
+                                } else {
+                                    Label("Zaloguj przez Microsoft", systemImage: "person.badge.key.fill")
+                                }
                             }
+                            .disabled(state.signingIn)
                             Text("Logowanie wymaga skonfigurowanego identyfikatora aplikacji Microsoft Entra. Hasło podajesz wyłącznie na stronie Microsoft.")
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)

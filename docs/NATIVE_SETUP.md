@@ -41,10 +41,11 @@ The manually triggered GitHub Actions workflow `Validate native iOS app` runs a 
 
 1. Register a Microsoft Entra application that supports **personal Microsoft accounts** and native/public clients.
 2. Configure redirect URI `novacraft://auth` and register the URL scheme in the app (included in `Info.plist`).
-3. Set the public application (client) ID in `Native/NovaCraft/MicrosoftMinecraftAuth.swift`. Do **not** put a client secret in the app.
-4. Ensure the application has appropriate Microsoft/Xbox permissions and that the Xbox Live and Minecraft services flow is available for the registration. This may require additional provider configuration.
-5. Test authorization code with PKCE, XBL, XSTS, entitlement and profile responses on a signed iPhone build.
-6. Tokens are currently **in-memory only**. Before release, implement secure Keychain token persistence, refresh, logout and error handling.
+3. Replace `YOUR_MICROSOFT_CLIENT_ID` in `Native/NovaCraft/Info.plist` (`MicrosoftClientID`) with the public application (client) ID. Do **not** put a client secret in the app. The app now reads the ID from Info.plist and fails clearly if it is not configured.
+4. Verify that the chosen redirect URI is accepted by the registration platform and matches the value in `MicrosoftMinecraftAuth.swift`; the current code uses `novacraft://auth`.
+5. Ensure the application has appropriate Microsoft/Xbox permissions and that the Xbox Live and Minecraft services flow is available for the registration. This may require additional provider configuration.
+6. Test authorization code with PKCE, XBL, XSTS, entitlement and profile responses on a signed iPhone build.
+7. Tokens are currently **in-memory only**. Before release, implement secure Keychain token persistence, refresh, logout and error handling.
 
 Do not commit any secret or a user's access token to GitHub.
 
