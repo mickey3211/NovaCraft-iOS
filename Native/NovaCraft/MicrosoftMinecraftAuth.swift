@@ -21,7 +21,9 @@ enum AuthError: LocalizedError {
     case apiError(String)
     var errorDescription: String? {
         switch self {
-        case .clientIDMissing: return "Brak Microsoft Client ID. Ustaw wartość MicrosoftClientID w Info.plist po zarejestrowaniu aplikacji w Microsoft Entra."\n        case .invalidState: return "Nieprawidłowy stan odpowiedzi logowania. Spróbuj ponownie."\n        case .providerError(let detail): return "Microsoft odrzucił logowanie: \\(detail)"
+        case .clientIDMissing: return "Brak Microsoft Client ID. Ustaw wartość MicrosoftClientID w Info.plist po zarejestrowaniu aplikacji w Microsoft Entra."
+        case .invalidState: return "Nieprawidłowy stan odpowiedzi logowania. Spróbuj ponownie."
+        case .providerError(let detail): return "Microsoft odrzucił logowanie: \(detail)"
         case .loginCancelled: return "Anulowano logowanie"
         case .missingCode: return "Brak kodu autoryzacji"
         case .invalidResponse: return "Nieprawidłowa odpowiedź usługi uwierzytelniania"
@@ -56,7 +58,8 @@ private struct MinecraftProfile: Decodable {
 @MainActor
 final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
     // Register your own public client in Microsoft Entra; never put a client secret in an iOS app.
-    private var clientID: String {\n        (Bundle.main.object(forInfoDictionaryKey: "MicrosoftClientID") as? String ?? "")\n            .trimmingCharacters(in: .whitespacesAndNewlines)\n    }
+    private var clientID: String {\n        (Bundle.main.object(forInfoDictionaryKey: "MicrosoftClientID") as? String ?? "")\n            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
     private let redirect = "novacraft://auth"
     private var webSession: ASWebAuthenticationSession?
 
@@ -162,7 +165,7 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
 
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {\n            let status = (response as? HTTPURLResponse)?.statusCode ?? 0\n            // Do not log or display raw provider responses: they may contain sensitive data.\n            throw AuthError.apiError("Serwer uwierzytelniania odrzucił żądanie (HTTP \\(status)).")\n        }
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {\n            let status = (response as? HTTPURLResponse)?.statusCode ?? 0\n            // Do not log or display raw provider responses: they may contain sensitive data.\n            throw AuthError.apiError("Serwer uwierzytelniania odrzucił żądanie (HTTP \(status)).")\n        }
         return try JSONDecoder().decode(T.self, from: data)
     }
 
