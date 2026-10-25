@@ -11,6 +11,7 @@ final class LauncherState: ObservableObject {
     @Published var refreshing = false
     @Published var message = "Gotowy"
     @Published var account: MinecraftAccount?
+    @Published var signingIn = false
     @Published var servers: [SavedServer] = [] {
         didSet { if let data = try? JSONEncoder().encode(servers) { UserDefaults.standard.set(data, forKey: "servers") } }
     }
@@ -76,10 +77,18 @@ final class LauncherState: ObservableObject {
     }
 
     func signIn() async {
+        guard !signingIn else { return }
+        signingIn = true
+        defer { signingIn = false }
         do {
             account = try await authentication.signIn()
             message = "Zalogowano: \(account?.username ?? "")"
         } catch { message = "Logowanie nieudane: \(error.localizedDescription)" }
+    }
+
+    func signOut() {
+        account = nil
+        message = "Wylogowano z Minecraft"
     }
 
     func launch() async {
