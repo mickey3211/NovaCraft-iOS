@@ -12,6 +12,8 @@ struct MinecraftAccount {
 
 enum AuthError: LocalizedError {
     case clientIDMissing
+    case invalidState
+    case providerError(String)
     case loginCancelled
     case missingCode
     case invalidResponse
@@ -19,7 +21,7 @@ enum AuthError: LocalizedError {
     case apiError(String)
     var errorDescription: String? {
         switch self {
-        case .clientIDMissing: return "Ustaw Microsoft Client ID w MicrosoftMinecraftAuth.swift"
+        case .clientIDMissing: return "Brak Microsoft Client ID. Ustaw wartość MicrosoftClientID w Info.plist po zarejestrowaniu aplikacji w Microsoft Entra."\n        case .invalidState: return "Nieprawidłowy stan odpowiedzi logowania. Spróbuj ponownie."\n        case .providerError(let detail): return "Microsoft odrzucił logowanie: \\(detail)"
         case .loginCancelled: return "Anulowano logowanie"
         case .missingCode: return "Brak kodu autoryzacji"
         case .invalidResponse: return "Nieprawidłowa odpowiedź usługi uwierzytelniania"
@@ -54,7 +56,7 @@ private struct MinecraftProfile: Decodable {
 @MainActor
 final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
     // Register your own public client in Microsoft Entra; never put a client secret in an iOS app.
-    private let clientID = "" // TODO: Microsoft Entra application (client) ID
+    private var clientID: String {\n        (Bundle.main.object(forInfoDictionaryKey: "MicrosoftClientID") as? String ?? "")\n            .trimmingCharacters(in: .whitespacesAndNewlines)\n    }
     private let redirect = "novacraft://auth"
     private var webSession: ASWebAuthenticationSession?
 
@@ -64,7 +66,7 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
     }
 
     func signIn() async throws -> MinecraftAccount {
-        guard !clientID.isEmpty else { throw AuthError.clientIDMissing }
+        guard !clientID.isEmpty, clientID != "YOUR_MICROSOFT_CLIENT_ID" else { throw AuthError.clientIDMissing }
         let verifier = Self.randomBase64URL(bytes: 32)
         let challenge = Self.base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
         let state = Self.randomBase64URL(bytes: 20)
@@ -91,10 +93,7 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
             if !session.start() { continuation.resume(throwing: AuthError.loginCancelled) }
         }
         let result = URLComponents(url: callback, resolvingAgainstBaseURL: false)
-        guard result?.queryItems?.first(where: { $0.name == "state" })?.value == state,
-              let code = result?.queryItems?.first(where: { $0.name == "code" })?.value else {
-            throw AuthError.missingCode
-        }
+        guard result?.queryItems?.first(where: { $0.name == "state" })?.value == state else {\n            throw AuthError.invalidState\n        }\n        if let error = result?.queryItems?.first(where: { $0.name == "error" })?.value {\n            let detail = result?.queryItems?.first(where: { $0.name == "error_description" })?.value ?? error\n            throw AuthError.providerError(detail)\n        }\n        guard let code = result?.queryItems?.first(where: { $0.name == "code" })?.value else {\n            throw AuthError.missingCode\n        }
         let token = try await exchangeCode(code, verifier: verifier)
         let xbox = try await xboxLive(token: token)
         guard let uhs = xbox.DisplayClaims?.xui?.first?.uhs else { throw AuthError.invalidResponse }
@@ -163,9 +162,7 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
 
     private func send<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw AuthError.apiError("Serwer uwierzytelniania odrzucił żądanie (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0))")
-        }
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {\n            let status = (response as? HTTPURLResponse)?.statusCode ?? 0\n            // Do not log or display raw provider responses: they may contain sensitive data.\n            throw AuthError.apiError("Serwer uwierzytelniania odrzucił żądanie (HTTP \\(status)).")\n        }
         return try JSONDecoder().decode(T.self, from: data)
     }
 
