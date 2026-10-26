@@ -43,11 +43,15 @@ int nova_jni_invoke_main(const char *runtime_path,
                          const char *main_class,
                          const char *classpath,
                          const char *native_path,
+                         const char * const *jvm_options,
+                         int jvm_option_count,
                          const char * const *game_args,
                          int game_arg_count) {
     if (already_started) return -10; // A JVM cannot safely be restarted in process.
     if (!runtime_path || !main_class || !classpath || !native_path ||
-        !game_args || game_arg_count < 0 || game_arg_count > 1024) return -11;
+        !game_args || game_arg_count < 0 || game_arg_count > 1024 ||
+        jvm_option_count < 0 || jvm_option_count > 128 ||
+        (jvm_option_count > 0 && !jvm_options)) return -11;
     void *library = dlopen(runtime_path, RTLD_NOW | RTLD_LOCAL);
     if (!library) return -12;
     CreateVM create = (CreateVM)dlsym(library, "JNI_CreateJavaVM");
@@ -62,8 +66,14 @@ int nova_jni_invoke_main(const char *runtime_path,
     }
     snprintf(cp, classpath_size, "-Djava.class.path=%s", classpath);
     snprintf(np, native_size, "-Djava.library.path=%s", native_path);
-    JavaVMOption options[] = { {cp, NULL}, {np, NULL}, {"-Xmx768m", NULL} };
-    JavaVMInitArgs init = {0x00010008, 3, options, 0};
+    JavaVMOption options[131] = {0};
+    options[0].optionString = cp;
+    options[1].optionString = np;
+    options[2].optionString = "-Xmx768m";
+    for (int i = 0; i < jvm_option_count; i++) {
+        options[i + 3].optionString = (char *)jvm_options[i];
+    }
+    JavaVMInitArgs init = {0x00010008, jvm_option_count + 3, options, 0};
     void *vm = NULL;
     void *env = NULL;
     jint result = create(&vm, &env, &init);
