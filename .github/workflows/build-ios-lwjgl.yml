@@ -15,6 +15,12 @@ on:
         required: false
         type: string
 
+# A launcher change can trigger a full LWJGL/Java iOS rebuild.
+# Cancel obsolete in-progress builds for the same branch.
+concurrency:
+  group: novacraft-ios-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
