@@ -39,6 +39,9 @@ jobs:
           ditto java_bundle-device/lib/modules "$GITHUB_WORKSPACE/JavaRuntime/lib/modules"
           echo "Linked static iOS OpenJDK and bundled java modules; runtime major not verified as Java 21."
 
+      - name: Prepare verified native Java 21 iOS runtime
+        run: bash scripts/build-vendor-ios-jre21.sh
+
       - name: Generate Xcode project
         run: xcodegen generate
 

@@ -9,7 +9,11 @@ enum NovaGameRunner {
         let classpath = iosLWJGLClasspath(fallback: args.classpath)
         // Resolve JVM properties against the classpath that actually includes
         // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
-        let jvmOptions = normalizeJVMOptions(args.jvmArguments)
+        var jvmOptions = normalizeJVMOptions(args.jvmArguments)
+        if javaMajor == 21 {
+            let home = library.deletingLastPathComponent().path
+            jvmOptions.append("-Djava.home=\(home)")
+        }
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
