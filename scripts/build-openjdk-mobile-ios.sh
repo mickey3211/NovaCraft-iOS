@@ -23,6 +23,7 @@ SUPPORT="$(cd "$IOS_JDK_SUPPORT" && pwd)"
 BOOT="$(cd "$BOOT_JDK" && pwd)"
 cd "$SRC"
 bash configure \
+  --with-conf-name=ios-aarch64-zero-release \
   --disable-warnings-as-errors \
   --openjdk-target=aarch64-macos-ios \
   --with-jvm-variants=zero \
@@ -31,10 +32,10 @@ bash configure \
   --with-libffi-lib="$SUPPORT/libffi/libs" \
   --with-cups-include="$SUPPORT/cups-2.3.6" \
   --with-sysroot="$SDK"
-CONF="$(find build -maxdepth 1 -type d -name 'ios-aarch64-zero-*' | head -n 1)"
-[[ -n "$CONF" ]] || { echo "OpenJDK iOS build configuration not found"; exit 1; }
+CONF="build/ios-aarch64-zero-release"
+[[ -d "$CONF" ]] || { echo "OpenJDK iOS build configuration not found"; exit 1; }
 make CONF="$(basename "$CONF")" static-libs-image
-JVM="$(find "$CONF/images/static-libs" -path '*/zero/libjvm.a' -type f -print -quit)"
+JVM="$CONF/images/static-libs/lib/zero/libjvm.a"
 [[ -n "$JVM" && -s "$JVM" ]] || { echo "No static iOS Zero JVM library found"; exit 1; }
 echo "Built iOS JVM static archive: $JVM"
 echo "IMPORTANT: This archive cannot be dlopen()'d; NovaCraft still needs a signed framework and JDK classes."
