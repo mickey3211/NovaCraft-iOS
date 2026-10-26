@@ -18,6 +18,10 @@ struct NovaEngineRuntime: MinecraftRuntime {
         try NovaEngineCore.inspect(versionID: version, root: root)
     }
 
+    func prepareOfflineArguments(version: String, nickname: String) throws -> NovaLaunchArguments {
+        try NovaLaunchArgumentBuilder.build(version: version, root: root, nickname: nickname)
+    }
+
     func launch(version: String, account: MinecraftAccount?) async throws {
         let plan = try inspect(version: version)
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
