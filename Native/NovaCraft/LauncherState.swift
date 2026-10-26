@@ -117,6 +117,14 @@ final class LauncherState: ObservableObject {
         } catch { message = "Logowanie nieudane: \(error.localizedDescription)" }
     }
 
+    func testJVMStartup() async {
+        message = "Uruchamianie testu JNI…"
+        let result = await Task.detached(priority: .userInitiated) {
+            NovaJNIStartupTest.run()
+        }.value
+        message = result
+    }
+
     func inspectEngine() {
         do {
             let plan = try runtime.inspect(version: selectedVersion)
