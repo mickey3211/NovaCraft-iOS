@@ -26,6 +26,12 @@ jobs:
           REV: ${{ inputs.lwjgl_commit || '39272d4d0ca119379024e3ca7207699fd3fce237' }}
         run: |
           [[ "$REV" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Full git commit required"; exit 1; }
+      - name: Install required Java 8 build JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
       - name: Install build dependencies
         run: |
           brew install ant wget
@@ -67,6 +73,7 @@ jobs:
           s = s.replace('  -Dbinding.assimp=false \\', '  -Dbinding.assimp=false \\\n  -Dbinding.shaderc=false \\')
           p.write_text(s)
           PY
+          export JAVA8_HOME="$JAVA_HOME"
           SKIP_LIBFFI=1 bash ci_build_ios.bash
           test -d bin/RELEASE
           test -d bin/out
