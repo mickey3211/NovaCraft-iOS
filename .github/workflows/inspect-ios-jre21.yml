@@ -24,7 +24,7 @@ jobs:
           cd "$RUNNER_TEMP/jre21"
           curl --fail --location --retry 3 --max-time 240 \
             -o jre21-ios-aarch64.zip \
-            'https://nightly.link/PojavLauncherTeam/android-openjdk-build-multiarch/workflows/build/buildjre17-21/jre21-ios-aarch64.zip'
+            'https://assets.angelauramc.dev/openjdk/ios-arm64/jre21-ios-aarch64.zip'
           shasum -a 256 jre21-ios-aarch64.zip | tee SHA256.txt
           unzip -l jre21-ios-aarch64.zip | tee zip-inventory.txt
           mkdir extracted
