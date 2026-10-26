@@ -31,7 +31,7 @@ jobs:
           brew install ant wget
       - name: Checkout iOS LWJGL fork
         env:
-          REV: ${{ inputs.lwjgl_commit }}
+          REV: ${{ inputs.lwjgl_commit || '39272d4d0ca119379024e3ca7207699fd3fce237' }}
         run: |
           set -euo pipefail
           git clone https://github.com/PojavLauncherTeam/lwjgl3.git "$RUNNER_TEMP/lwjgl3"
