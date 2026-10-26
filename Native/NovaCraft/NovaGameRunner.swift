@@ -35,14 +35,27 @@ enum NovaGameRunner {
         }
     }
 
-    /// JNI invocation accepts VM options, not the command-line java launcher
-    /// syntax. -cp/--class-path is handled by -Djava.class.path in C.
-    private static func normalizeJVMOptions(_ input: [String]) -> [String] {
+    /// The Java launcher accepts argument pairs like "--add-opens", "module/pkg=..."
+    /// but JNI_CreateJavaVM expects each VM option as one string.
+    /// Keep launch-only options out of the Invocation API.
+    static func normalizeJVMOptions(_ input: [String]) -> [String] {
         var output: [String] = []
+        let equalsOptions: Set<String> = [
+            "--add-opens", "--add-exports", "--add-modules",
+            "--enable-native-access", "--add-reads", "--patch-module",
+            "--limit-modules"
+        ]
         var index = 0
         while index < input.count {
             let value = input[index]
-            if value == "-cp" || value == "-classpath" || value == "--class-path" {
+            if value == "-cp" || value == "-classpath" || value == "--class-path" ||
+                value == "-p" || value == "--module-path" {
+                index += min(2, input.count - index)
+                continue
+            }
+            if equalsOptions.contains(value) {
+                guard index + 1 < input.count else { break }
+                output.append(value + "=" + input[index + 1])
                 index += 2
                 continue
             }
@@ -54,7 +67,11 @@ enum NovaGameRunner {
             }
             if value.hasPrefix("-D") || value.hasPrefix("-X") ||
                 value.hasPrefix("-XX:") || value.hasPrefix("--add-opens=") ||
-                value.hasPrefix("--add-exports=") || value.hasPrefix("--add-modules=") {
+                value.hasPrefix("--add-exports=") || value.hasPrefix("--add-modules=") ||
+                value.hasPrefix("--enable-native-access=") ||
+                value.hasPrefix("--add-reads=") ||
+                value.hasPrefix("--patch-module=") ||
+                value.hasPrefix("--limit-modules=") {
                 output.append(value)
             }
             index += 1
