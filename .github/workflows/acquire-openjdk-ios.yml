@@ -37,11 +37,13 @@ jobs:
           unzip -q java.base-device.zip -d extracted/java.base
           unzip -q java_bundle-device.zip -d extracted/java-bundle
           echo "===== Device framework and runtime inventory ====="
-          find extracted -maxdepth 7 -type f | head -100
-          find extracted/OpenJDK -type f \( -name '*.a' -o -name '*.dylib' -o -name 'OpenJDK' \) -print | while read -r file; do
+          find extracted -maxdepth 7 -type f > "$RUNNER_TEMP/jdk-ios/inventory.txt"
+          sed -n '1,100p' "$RUNNER_TEMP/jdk-ios/inventory.txt"
+          find extracted/OpenJDK -type f \( -name '*.a' -o -name '*.dylib' -o -name 'OpenJDK' \) -print > "$RUNNER_TEMP/jdk-ios/binaries.txt"
+          while IFS= read -r file; do
             file "$file"
             xcrun vtool -show-build "$file" || true
-          done
+          done < "$RUNNER_TEMP/jdk-ios/binaries.txt"
           echo "IMPORTANT: These are upstream components, not a verified Minecraft Java 21 JVM."
       - name: Upload verified upstream libraries for integration
         uses: actions/upload-artifact@v4
