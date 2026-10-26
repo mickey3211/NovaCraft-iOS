@@ -214,6 +214,7 @@ struct LauncherView: View {
                         }
                         Text(NovaHardwareDiagnostics.metalStatus())
                         Text(NovaHardwareDiagnostics.javaStatus())
+                        Text(NovaJVMProbe.report())
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
