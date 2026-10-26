@@ -7,6 +7,7 @@ enum NovaGameRunner {
         guard let library = NovaJavaRuntimeRegistry.frameworkURL(major: javaMajor) else { return -30 }
         let nativePath = Bundle.main.privateFrameworksURL?.path ?? ""
         let jvmOptions = normalizeJVMOptions(args.jvmArguments)
+        let classpath = iosLWJGLClasspath(fallback: args.classpath)
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
@@ -20,7 +21,7 @@ enum NovaGameRunner {
             vmStrings.withUnsafeBufferPointer { vmBuffer in
                 library.path.withCString { runtimePath in
                     args.mainClass.withCString { mainClass in
-                        args.classpath.withCString { classpath in
+                        classpath.withCString { classpath in
                             nativePath.withCString { nativeDir in
                                 nova_jni_invoke_main(runtimePath, mainClass, classpath,
                                                      nativeDir, vmBuffer.baseAddress,
@@ -33,6 +34,22 @@ enum NovaGameRunner {
                 }
             }
         }
+    }
+
+    /// Prefer upstream iOS LWJGL jars to Mojang's desktop variants, but preserve
+    /// the rest of the Minecraft classpath. Jars are code data, not executable iOS binaries.
+    private static func iosLWJGLClasspath(fallback: String) -> String {
+        let dir = Bundle.main.bundleURL.appendingPathComponent("LWJGL-iOS", isDirectory: true)
+        guard let jars = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil),
+              !jars.isEmpty else { return fallback }
+        let libraryJars = jars.filter { $0.pathExtension.lowercased() == "jar" }.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        if libraryJars.isEmpty { return fallback }
+        let original = fallback.split(separator: ":").map(String.init).filter { entry in
+            let filename = URL(fileURLWithPath: entry).lastPathComponent
+            return !filename.hasPrefix("lwjgl-") && !filename.hasPrefix("lwjgl3-")
+                && !filename.hasPrefix("lwjglx-")
+        }
+        return (libraryJars.map(\.path) + original).joined(separator: ":")
     }
 
     /// The Java launcher accepts argument pairs like "--add-opens", "module/pkg=..."
