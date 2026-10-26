@@ -54,6 +54,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
         // A Java VM can live for hours and may initialize deep native stack
         // frames. Never occupy a Swift cooperative-concurrency worker thread.
         // Use one dedicated POSIX-backed NSThread with a predictable stack.
+        let startTime = ProcessInfo.processInfo.systemUptime
         let code = await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
             let javaThread = Thread {
                 let result = NovaGameRunner.run(args, javaMajor: major)
@@ -65,6 +66,10 @@ struct NovaEngineRuntime: MinecraftRuntime {
             javaThread.start()
         }
         guard code == 0 else { throw NovaEngineLaunchError.jvmFailure(code) }
+        let runtimeSeconds = ProcessInfo.processInfo.systemUptime - startTime
+        if runtimeSeconds < 10 {
+            throw NovaEngineLaunchError.gameExitedImmediately(runtimeSeconds)
+        }
     }
 }
 
@@ -72,9 +77,12 @@ enum NovaEngineLaunchError: LocalizedError {
     case incompleteInstallation(String)
     case missingJavaAndRenderer(String)
     case jvmFailure(Int32)
+    case gameExitedImmediately(Double)
 
     var errorDescription: String? {
         switch self {
+        case .gameExitedImmediately(let duration):
+            return "Java zakończyła działanie po \(String(format: "%.1f", duration)) s (kod 0), ale nie pojawiło się okno Minecrafta. Zobacz dziennik Java poniżej."
         case .jvmFailure(let code):
             return "Nie udało się uruchomić Minecraft przez JVM (JNI/JLI) (kod: \(code))."
         case .incompleteInstallation(let report):
