@@ -16,9 +16,22 @@ test -s "$TEMP/jre/lib/server/libjvm.dylib"
 test -s "$TEMP/jre/lib/libjli.dylib"
 test -s "$TEMP/jre/lib/modules"
 grep -Eq '^JAVA_VERSION="21([.]|")' "$TEMP/jre/release" || { echo "Upstream runtime isn't Java 21"; exit 1; }
+# Preserve the complete upstream Java home. JLI searches for its runtime
+# using java.home / the launcher's bin/java location and needs native config.
+# Copying just lib/ misses release metadata, conf/ and bin/.
 mkdir -p Vendor/NovaJava21.framework
+ditto "$TEMP/jre" Vendor/NovaJava21.framework
+test -s Vendor/NovaJava21.framework/lib/modules
+test -s Vendor/NovaJava21.framework/lib/libjli.dylib
+test -s Vendor/NovaJava21.framework/release
+if [[ -e "$TEMP/jre/bin/java" ]]; then
+  test -s Vendor/NovaJava21.framework/bin/java
+  echo "Java launcher executable path preserved for JLI argv[0]."
+else
+  echo "Upstream JRE archive has no bin/java; JLI startup may need an alternative executable path."
+fi
+# Keep a conventional framework entrypoint for iOS dynamic loader checks.
 ditto "$TEMP/jre/lib/server/libjvm.dylib" Vendor/NovaJava21.framework/NovaJava21
-ditto "$TEMP/jre/lib" Vendor/NovaJava21.framework/lib
 # The iOS signer must recursively sign native dylibs, not only the outer framework.
 find Vendor/NovaJava21.framework/lib -type f -name "*.dylib" -print > "$TEMP/native-dylibs.txt"
 echo "Native JRE libraries requiring code signing: $(wc -l < "$TEMP/native-dylibs.txt")"
