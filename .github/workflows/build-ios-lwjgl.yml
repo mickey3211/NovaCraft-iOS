@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-ios-lwjgl.yml'
+      - 'Native/NovaCraft/**'
+      - 'scripts/**'
+      - 'project.yml'
   workflow_dispatch:
     inputs:
       lwjgl_commit:
