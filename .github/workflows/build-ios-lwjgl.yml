@@ -1,0 +1,53 @@
+name: Build iOS LWJGL components (upstream source)
+
+on:
+  workflow_dispatch:
+    inputs:
+      lwjgl_commit:
+        description: "Reviewed 40-character commit SHA of PojavLauncherTeam/lwjgl3"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  lwjgl:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate pinned revision
+        env:
+          REV: ${{ inputs.lwjgl_commit }}
+        run: |
+          [[ "$REV" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Full git commit required"; exit 1; }
+      - name: Install build dependencies
+        run: |
+          brew install ant wget
+      - name: Checkout iOS LWJGL fork
+        env:
+          REV: ${{ inputs.lwjgl_commit }}
+        run: |
+          set -euo pipefail
+          git clone https://github.com/PojavLauncherTeam/lwjgl3.git "$RUNNER_TEMP/lwjgl3"
+          git -C "$RUNNER_TEMP/lwjgl3" checkout --detach "$REV"
+      - name: Build native iOS LWJGL and Java jars
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/lwjgl3"
+          # Upstream build downloads libffi and shaderc dependencies itself.
+          # Do not distribute these binaries without auditing their provenance.
+          bash ci_build_ios.bash
+          test -d bin/RELEASE
+          test -d bin/out
+          mkdir -p "$RUNNER_TEMP/lwjgl-artifact/jars" "$RUNNER_TEMP/lwjgl-artifact/native"
+          cp -R bin/RELEASE/. "$RUNNER_TEMP/lwjgl-artifact/jars/"
+          cp -R bin/out/. "$RUNNER_TEMP/lwjgl-artifact/native/"
+          find "$RUNNER_TEMP/lwjgl-artifact/native" -type f -exec file {} \;
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-ios-lwjgl-components-not-IPA
+          path: ${{ runner.temp }}/lwjgl-artifact
+          if-no-files-found: error
+          retention-days: 7

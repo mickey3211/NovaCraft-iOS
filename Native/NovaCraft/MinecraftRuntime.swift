@@ -37,9 +37,11 @@ struct NovaEngineRuntime: MinecraftRuntime {
         }
         guard let frameworks = Bundle.main.privateFrameworksURL,
               FileManager.default.fileExists(atPath: frameworks
-                  .appendingPathComponent("NovaLWJGLBridge.framework/NovaLWJGLBridge").path) else {
+                  .appendingPathComponent("liblwjgl.dylib").path),
+              FileManager.default.fileExists(atPath: Bundle.main.bundleURL
+                  .appendingPathComponent("LWJGL-iOS", isDirectory: true).path) else {
             throw NovaEngineLaunchError.missingJavaAndRenderer(
-                "Java \(major) jest dostępna, ale brak natywnego mostu LWJGL/Metal. Nie można bezpiecznie uruchomić klienta Minecraft."
+                "Java \(major) jest dostępna, ale brak bibliotek LWJGL dla iOS. Nie można bezpiecznie uruchomić klienta Minecraft."
             )
         }
         let args = try prepareOfflineArguments(version: version, nickname: nickname)
