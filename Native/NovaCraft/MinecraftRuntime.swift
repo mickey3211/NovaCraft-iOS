@@ -53,7 +53,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
                 let result = NovaGameRunner.run(args, javaMajor: major)
                 continuation.resume(returning: result)
             }
-            javaThread.name = "NovaCraft-Java-(major)"
+            javaThread.name = "NovaCraft-Java-\(major)"
             javaThread.stackSize = 16 * 1024 * 1024
             javaThread.qualityOfService = .userInitiated
             javaThread.start()
@@ -70,7 +70,7 @@ enum NovaEngineLaunchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .jvmFailure(let code):
-            return "Nie udało się uruchomić klasy głównej Minecraft przez JNI (kod: \(code))."
+            return "Nie udało się uruchomić Minecraft przez JVM (JNI/JLI) (kod: \(code))."
         case .incompleteInstallation(let report):
             return "NovaEngine: instalacja niekompletna. \(report)"
         case .missingJavaAndRenderer(let report):
