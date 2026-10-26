@@ -25,6 +25,11 @@ enum NovaGameRunner {
         jvmOptions.append("-Xint")
         jvmOptions.append("-XX:+UseSerialGC")
         jvmOptions.append("-XX:-UsePerfData")
+        // If HotSpot encounters a native fatal error, preserve hs_err_pid
+        // in Documents so it can be exported after reopening NovaCraft.
+        if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            jvmOptions.append("-XX:ErrorFile=\(documents.appendingPathComponent("NovaCraft-hs_err_pid%p.log").path)")
+        }
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
