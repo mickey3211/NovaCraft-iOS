@@ -15,7 +15,11 @@ validate_and_copy() {
   lipo -archs "$binary" | grep -qw arm64 || { echo "$name lacks arm64"; exit 1; }
   local tmp
   tmp=$(mktemp)
-  if lipo -archs "$binary" | grep -qE '(^| )[^ ]+ arm64|^arm64
+  if [[ "$(lipo -archs "$binary" | wc -w | tr -d ' ')" -gt 1 ]]; then
+    lipo "$binary" -thin arm64 -output "$tmp"
+  else
+    cp "$binary" "$tmp"
+  fi
   if ! xcrun vtool -show-build "$tmp" | grep -Eq 'platform (IOS|2)([[:space:]]|$)'; then
     rm -f "$tmp"
     echo "$name is not built for iOS device"
