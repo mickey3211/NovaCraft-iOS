@@ -8,6 +8,7 @@ struct LauncherView: View {
     @AppStorage("version-filter") private var versionFilter = "all"
     @AppStorage("download-wifi-reminder") private var wifiReminder = true
     @AppStorage("prefer-dark-interface") private var preferDarkInterface = true
+    @State private var offlineNickname = ""
     @State private var serverName = ""
     @State private var serverAddress = ""
     @State private var versionSearch = ""
@@ -80,6 +81,30 @@ struct LauncherView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    Section("Profil offline (bez premium)") {
+                        TextField("Nick, np. Gracz123", text: $offlineNickname)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Button("Dodaj profil offline") {
+                            state.addOfflineProfile(offlineNickname)
+                            if state.activeOfflineProfile?.nickname == offlineNickname { offlineNickname = "" }
+                        }
+                        .disabled(offlineNickname.isEmpty)
+                        if !state.offlineProfiles.isEmpty {
+                            Picker("Aktywny profil", selection: $state.selectedOfflineID) {
+                                Text("Brak").tag(nil as UUID?)
+                                ForEach(state.offlineProfiles) { profile in
+                                    Text(profile.nickname).tag(Optional(profile.id))
+                                }
+                            }
+                            ForEach(state.offlineProfiles) { profile in
+                                Label(profile.nickname, systemImage: "person.crop.circle")
+                            }
+                            .onDelete(perform: state.removeOfflineProfiles)
+                        }
+                        Text("Profil offline to tylko lokalny nick. Nie omija weryfikacji Microsoft i nie działa na serwerach wymagających konta premium. Uruchamianie gry nadal wymaga JVM i renderera.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Section("Status") {
                         Text(state.message).font(.footnote)
                     }
@@ -123,12 +148,17 @@ struct LauncherView: View {
                                         .textSelection(.enabled)
                                 }
                                 .padding(.vertical, 4)
+                                Button("Sprawdź dostępność TCP") {
+                                    Task { await state.probeServer(server.address) }
+                                }
+                                .font(.caption)
                             }
                             .onDelete { state.servers.remove(atOffsets: $0) }
                         }
                     }
-                    Section {
-                        Label("Lista zapisuje adresy. Łączenie multiplayer wymaga działającego silnika Minecraft Java.", systemImage: "info.circle")
+                    Section("Diagnostyka serwera") {
+                        Text(state.serverProbeStatus).font(.footnote)
+                        Label("Test TCP nie sprawdza protokołu Minecraft ani logowania. Multiplayer nadal wymaga działającego silnika gry.", systemImage: "info.circle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
