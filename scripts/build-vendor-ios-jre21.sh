@@ -19,7 +19,9 @@ mkdir -p Vendor/NovaJava21.framework
 ditto "$TEMP/jre/lib/server/libjvm.dylib" Vendor/NovaJava21.framework/NovaJava21
 ditto "$TEMP/jre/lib" Vendor/NovaJava21.framework/lib
 # Don't keep an extra copy of the JVM executable inside the Java home.
-rm -f Vendor/NovaJava21.framework/lib/server/libjvm.dylib
+# Preserve the original Java home directory layout, including lib/server/libjvm.dylib.
+# HotSpot and supporting native libraries may resolve relative to that location.
+# Signing must cover all bundled native code.
 cat > Vendor/NovaJava21.framework/Info.plist <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

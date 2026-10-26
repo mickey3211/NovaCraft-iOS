@@ -18,7 +18,13 @@ enum NovaGameRunner {
         // respects an explicit -Xmx option instead of adding a duplicate.
         let physicalGB = ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)
         let heapMB = physicalGB >= 6 ? 1536 : (physicalGB >= 4 ? 1024 : 768)
-        jvmOptions.append("-Xmx\(heapMB)m")
+        // iOS code-signing often disallows JIT executable pages. During
+        // bootstrap testing force HotSpot's interpreter and a modest heap.
+        jvmOptions.removeAll { $0.hasPrefix("-Xmx") || $0 == "-Xint" }
+        jvmOptions.append("-Xmx\(min(heapMB, 768))m")
+        jvmOptions.append("-Xint")
+        jvmOptions.append("-XX:+UseSerialGC")
+        jvmOptions.append("-XX:-UsePerfData")
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
