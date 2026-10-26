@@ -12,6 +12,8 @@ int nova_jni_invoke_main(const char *runtime_path,
                          const char *main_class,
                          const char *classpath,
                          const char *native_path,
+                         const char * const *jvm_options,
+                         int jvm_option_count,
                          const char * const *game_args,
                          int game_arg_count);
 
