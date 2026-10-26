@@ -19,7 +19,7 @@ enum AuthError: LocalizedError {
     case apiError(String)
     var errorDescription: String? {
         switch self {
-        case .clientIDMissing: return "Ustaw Microsoft Client ID w MicrosoftMinecraftAuth.swift"
+        case .clientIDMissing: return "Brak Microsoft Client ID w konfiguracji aplikacji"
         case .loginCancelled: return "Anulowano logowanie"
         case .missingCode: return "Brak kodu autoryzacji"
         case .invalidResponse: return "Nieprawidłowa odpowiedź usługi uwierzytelniania"
@@ -54,7 +54,7 @@ private struct MinecraftProfile: Decodable {
 @MainActor
 final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
     // Register your own public client in Microsoft Entra; never put a client secret in an iOS app.
-    private let clientID = "" // TODO: Microsoft Entra application (client) ID
+    private let clientID = "d48f4c8a-8925-445d-b6c9-0c1049373f78" // NovaCraft Launcher public client
     private let redirect = "novacraft://auth"
     private var webSession: ASWebAuthenticationSession?
 
@@ -91,6 +91,10 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
             if !session.start() { continuation.resume(throwing: AuthError.loginCancelled) }
         }
         let result = URLComponents(url: callback, resolvingAgainstBaseURL: false)
+        if let errorCode = result?.queryItems?.first(where: { $0.name == "error" })?.value {
+            let detail = result?.queryItems?.first(where: { $0.name == "error_description" })?.value ?? errorCode
+            throw AuthError.apiError("Microsoft: \(detail)")
+        }
         guard result?.queryItems?.first(where: { $0.name == "state" })?.value == state,
               let code = result?.queryItems?.first(where: { $0.name == "code" })?.value else {
             throw AuthError.missingCode
