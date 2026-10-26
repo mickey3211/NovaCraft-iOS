@@ -265,6 +265,32 @@ int nova_jli_launch_main(const char *runtime_path,
         return -45;
     }
 
+    // The iPhone signer must sign native code *inside* JAVA_HOME too.
+    // Check this before invoking JLI: otherwise dyld can kill the whole app
+    // during JVM startup and Swift never gets a chance to display an error.
+    char nested_vm_path[PATH_MAX];
+    int vm_path_length = snprintf(nested_vm_path, sizeof(nested_vm_path),
+                                  "%s/lib/server/libjvm.dylib", home);
+    if (vm_path_length < 0 || (size_t)vm_path_length >= sizeof(nested_vm_path)) {
+        nova_checkpoint("JLI: ścieżka do libjvm jest zbyt długa");
+        return -48;
+    }
+    nova_checkpoint("JLI: weryfikowanie podpisu i zależności libjvm.dylib");
+    void *nested_vm = dlopen(nested_vm_path, RTLD_NOW | RTLD_GLOBAL);
+    if (!nested_vm) {
+        const char *reason = dlerror();
+        char report[512];
+        snprintf(report, sizeof(report), "JLI: nie można otworzyć libjvm (podpis lub zależności): %.360s",
+                 reason ? reason : "nieznany błąd");
+        nova_checkpoint(report);
+        return -49;
+    }
+    if (!dlsym(nested_vm, "JNI_CreateJavaVM")) {
+        nova_checkpoint("JLI: wbudowana libjvm nie udostępnia JNI_CreateJavaVM");
+        return -50;
+    }
+    nova_checkpoint("JLI: libjvm załadowana; przygotowanie Java 21");
+
     size_t argc = (size_t)jvm_option_count + (size_t)game_arg_count + 12;
     const char **argv = calloc(argc, sizeof(*argv));
     if (!argv) return -46;
