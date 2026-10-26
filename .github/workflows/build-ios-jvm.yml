@@ -1,0 +1,78 @@
+name: Build real OpenJDK iOS Zero JVM (static archive)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ios_support_zip_url:
+        description: "HTTPS URL to verified iOS ARM64 libffi + CUPS support archive"
+        required: true
+        type: string
+      ios_support_sha256:
+        description: "SHA-256 of the support archive (64 hex characters)"
+        required: true
+        type: string
+      openjdk_mobile_ref:
+        description: "Reviewed commit SHA from openjdk/mobile"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate supplied sources
+        env:
+          SUPPORT_URL: ${{ inputs.ios_support_zip_url }}
+          SUPPORT_SHA: ${{ inputs.ios_support_sha256 }}
+          MOBILE_REF: ${{ inputs.openjdk_mobile_ref }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SUPPORT_URL" == https://* ]] || { echo "HTTPS support URL required"; exit 1; }
+          [[ "$SUPPORT_SHA" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "Invalid SHA-256"; exit 1; }
+          [[ "$MOBILE_REF" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "Pin OpenJDK/mobile to a full 40-character commit SHA"; exit 1; }
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+      - name: Download checked support archive
+        env:
+          SUPPORT_URL: ${{ inputs.ios_support_zip_url }}
+          SUPPORT_SHA: ${{ inputs.ios_support_sha256 }}
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/support.zip" "$SUPPORT_URL"
+          echo "$SUPPORT_SHA  $RUNNER_TEMP/support.zip" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/ios-support"
+          unzip -q "$RUNNER_TEMP/support.zip" -d "$RUNNER_TEMP/ios-support"
+      - name: Checkout pinned upstream OpenJDK/mobile
+        env:
+          MOBILE_REF: ${{ inputs.openjdk_mobile_ref }}
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none https://github.com/openjdk/mobile.git "$RUNNER_TEMP/mobile"
+          git -C "$RUNNER_TEMP/mobile" checkout --detach "$MOBILE_REF"
+      - name: Build actual iOS ARM64 Zero JVM
+        env:
+          OPENJDK_MOBILE_SRC: ${{ runner.temp }}/mobile
+          IOS_JDK_SUPPORT: ${{ runner.temp }}/ios-support
+          BOOT_JDK: ${{ env.JAVA_HOME }}
+        run: |
+          set -euo pipefail
+          brew install autoconf
+          bash scripts/build-openjdk-mobile-ios.sh
+          cp "$OPENJDK_MOBILE_SRC/build/ios-aarch64-zero-release/images/static-libs/lib/zero/libjvm.a" "$RUNNER_TEMP/libjvm-ios-zero.a"
+          shasum -a 256 "$RUNNER_TEMP/libjvm-ios-zero.a" | tee "$RUNNER_TEMP/libjvm-ios-zero.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenJDK-iOS-Zero-static-JVM-not-IPA
+          path: |
+            ${{ runner.temp }}/libjvm-ios-zero.a
+            ${{ runner.temp }}/libjvm-ios-zero.sha256
+          retention-days: 7
+          if-no-files-found: error
