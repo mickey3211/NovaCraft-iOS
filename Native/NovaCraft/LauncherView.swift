@@ -13,6 +13,7 @@ struct LauncherView: View {
     @State private var serverAddress = ""
     @State private var versionSearch = ""
     @State private var showDeleteConfirmation = false
+    @State private var showAdvancedTools = false
 
     private var filteredVersions: [MinecraftVersion] {
         state.versions.filter { version in
@@ -31,8 +32,7 @@ struct LauncherView: View {
                         overview
                         versionPanel
                         installPanel
-                        hardwarePanel
-                        noticePanel
+
                     }
                     .padding(16)
                 }
@@ -348,73 +348,97 @@ struct LauncherView: View {
     }
 
     private var installPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Menedżer plików", systemImage: "internaldrive.fill")
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Minecraft Java", systemImage: "gamecontroller.fill")
                 .font(.headline)
+
             if state.busy {
                 ProgressView(value: state.downloadProgress)
-                Text("Pobieranie: \(Int(state.downloadProgress * 100))%")
+                Text("Przetwarzanie plików: \(Int(state.downloadProgress * 100))%")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            if wifiReminder && !state.selectedInstalled {
-                Label("Zalecane Wi-Fi — pliki mogą być duże.", systemImage: "wifi")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+
             Button {
-                Task { await state.installSelected() }
+                Task {
+                    if state.selectedInstalled {
+                        await state.launch()
+                    } else {
+                        await state.installSelected()
+                    }
+                }
             } label: {
-                Label(state.selectedInstalled ? "Pobierz ponownie" : "Pobierz pliki wersji",
-                      systemImage: "arrow.down.circle.fill")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                HStack(spacing: 10) {
+                    Image(systemName: state.selectedInstalled ? "play.fill" : "arrow.down.circle.fill")
+                    Text("Graj")
+                        .font(.title3.bold())
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(state.busy || state.selectedVersion.isEmpty)
-            if state.selectedInstalled {
-                Button(role: .destructive) {
-                    showDeleteConfirmation = true
-                } label: {
-                    Label("Usuń pobrane pliki", systemImage: "trash")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(state.busy)
-            }
-            if state.selectedInstalled {
-                Button {
-                    state.inspectEngine()
-                } label: {
-                    Label("Sprawdź zgodność NovaEngine", systemImage: "checkmark.shield")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
+            .accessibilityHint(state.selectedInstalled
+                ? "Próbuje uruchomić wybraną wersję Minecraft"
+                : "Najpierw pobiera pliki wybranej wersji Minecraft")
 
-                Button {
-                    state.prepareOfflineLaunch()
-                } label: {
-                    Label("Przygotuj start Java (profil offline)", systemImage: "terminal")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(state.activeOfflineProfile == nil)
-
-                Button {
-                    Task { await state.launch() }
-                } label: {
-                    Label("Uruchom Minecraft (test silnika)", systemImage: "play.circle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .disabled(state.busy)
-                Text("NovaEngine 0.1 analizuje wersję i biblioteki. Nie zawiera jeszcze JVM ani renderera, więc nie uruchamia gry.")
+            if !state.selectedInstalled {
+                Text("Pierwsze naciśnięcie pobiera Minecraft. Po pobraniu naciśnij Graj ponownie.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Text(state.message)
+
+            DisclosureGroup(isExpanded: $showAdvancedTools) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        Task { await state.installSelected() }
+                    } label: {
+                        Label("Pobierz ponownie", systemImage: "arrow.down.circle")
+                    }
+                    .disabled(state.busy || state.selectedVersion.isEmpty)
+
+                    if state.selectedInstalled {
+                        Button(role: .destructive) {
+                            showDeleteConfirmation = true
+                        } label: {
+                            Label("Usuń pobrane pliki", systemImage: "trash")
+                        }
+                        .disabled(state.busy)
+
+                        Button {
+                            state.inspectEngine()
+                        } label: {
+                            Label("Sprawdź zgodność NovaEngine", systemImage: "checkmark.shield")
+                        }
+
+                        Button {
+                            state.prepareOfflineLaunch()
+                        } label: {
+                            Label("Przygotuj start Java", systemImage: "terminal")
+                        }
+                        .disabled(state.activeOfflineProfile == nil)
+                    }
+                    Divider()
+                    Label("Diagnostyka JVM i grafiki", systemImage: "cpu")
+                        .font(.subheadline.bold())
+                    Text(NovaHardwareDiagnostics.javaStatus())
+                    Text(NovaHardwareDiagnostics.metalStatus())
+                    Text("Minecraft Java wymaga kompletnej Java 21 oraz zgodnej grafiki LWJGL na iOS. Udana kompilacja IPA nie potwierdza działania gry.")
+                        .foregroundStyle(.secondary)
+                }
                 .font(.footnote)
-                .foregroundStyle(.secondary)
-                .textSelection(.enabled)
+                .padding(.top, 8)
+            } label: {
+                Label("Narzędzia zaawansowane", systemImage: "wrench.and.screwdriver")
+                    .font(.subheadline)
+            }
+
+            if !state.message.isEmpty {
+                Text(state.message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
         }
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground),
