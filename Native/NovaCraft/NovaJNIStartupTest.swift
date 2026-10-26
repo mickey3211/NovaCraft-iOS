@@ -1,56 +1,51 @@
 import Foundation
 import Darwin
 
-// Minimal JNI Invocation API ABI, compatible with JNI_VERSION_1_8.
-private struct NovaJNIInitArgs {
-    var version: Int32
-    var optionCount: Int32
-    var options: UnsafeMutableRawPointer?
-    var ignoreUnrecognized: UInt8
-}
-
-private typealias NovaJNICreate = @convention(c) (
-    UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
-    UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
-    UnsafeMutableRawPointer?
-) -> Int32
-
-/// Explicit smoke test; NEVER run automatically at app startup.
+/// Non-destructive preflight for the bundled, signed Java 21 runtime.
+///
+/// Never call JNI_CreateJavaVM from a diagnostic button: a VM created this way
+/// cannot be restarted in-process and may terminate NovaCraft before the
+/// actual Minecraft launcher is allowed to run.
 enum NovaJNIStartupTest {
-    private static var didStart = false
-    private static var retainedHandle: UnsafeMutableRawPointer?
-
     static func run() -> String {
-        if didStart { return "JVM już uruchomiona w tym procesie." }
-        guard let directory = Bundle.main.privateFrameworksURL else {
-            return "Brak katalogu Frameworks."
+        guard let framework = NovaJavaRuntimeRegistry.frameworkURL(major: 21) else {
+            return "Brak katalogu Frameworks w aplikacji."
         }
-        let library = directory
-            .appendingPathComponent("NovaJavaRuntime.framework", isDirectory: true)
-            .appendingPathComponent("NovaJavaRuntime")
-        guard FileManager.default.fileExists(atPath: library.path) else {
-            return "Brak Java 21 dla iOS arm64 w aplikacji. Test JVM nie został uruchomiony."
+        let javaHome = framework.deletingLastPathComponent()
+        let fm = FileManager.default
+        let launcher = javaHome.appendingPathComponent("bin/java")
+        let jli = javaHome.appendingPathComponent("lib/libjli.dylib")
+        let vm = javaHome.appendingPathComponent("lib/server/libjvm.dylib")
+        let release = javaHome.appendingPathComponent("release")
+
+        for (label, path) in [("bin/java", launcher),
+                              ("lib/libjli.dylib", jli),
+                              ("lib/server/libjvm.dylib", vm),
+                              ("release", release)] {
+            guard fm.fileExists(atPath: path.path) else {
+                return "Java 21: brak pliku \(label) w pakiecie IPA."
+            }
         }
-        guard let handle = dlopen(library.path, RTLD_NOW | RTLD_LOCAL) else {
-            return "Nie można załadować frameworku JVM. Sprawdź podpis i zależności."
+
+        guard let jliHandle = dlopen(jli.path, RTLD_NOW | RTLD_GLOBAL) else {
+            let why = dlerror().map { String(cString: $0) } ?? "nieznany błąd"
+            return "Java 21: nie można załadować libjli.dylib. \(why)"
         }
-        guard let symbol = dlsym(handle, "JNI_CreateJavaVM") else {
-            dlclose(handle)
-            return "Brak JNI_CreateJavaVM w dostarczonym frameworku."
+        defer { dlclose(jliHandle) }
+        guard dlsym(jliHandle, "JLI_Launch") != nil else {
+            return "Java 21: libjli.dylib nie udostępnia JLI_Launch."
         }
-        let create = unsafeBitCast(symbol, to: NovaJNICreate.self)
-        var vm: UnsafeMutableRawPointer?
-        var env: UnsafeMutableRawPointer?
-        var args = NovaJNIInitArgs(version: 0x00010008, optionCount: 0, options: nil, ignoreUnrecognized: 0)
-        let code = withUnsafeMutablePointer(to: &args) { pointer in
-            create(&vm, &env, UnsafeMutableRawPointer(pointer))
+
+        guard let vmHandle = dlopen(vm.path, RTLD_NOW | RTLD_GLOBAL) else {
+            let why = dlerror().map { String(cString: $0) } ?? "nieznany błąd"
+            return "Java 21: nie można załadować libjvm.dylib. \(why)"
         }
-        if code == 0, vm != nil, env != nil {
-            didStart = true
-            retainedHandle = handle
-            return "JVM uruchomiona przez JNI_CreateJavaVM (JNI_OK). Uruchamianie Minecraft i grafika LWJGL nadal nie są gotowe."
+        defer { dlclose(vmHandle) }
+        guard dlsym(vmHandle, "JNI_CreateJavaVM") != nil else {
+            return "Java 21: libjvm.dylib nie udostępnia JNI_CreateJavaVM."
         }
-        dlclose(handle)
-        return "JNI_CreateJavaVM zwróciło błąd: \(code)."
+
+        return "Java 21: obie biblioteki i symbole JVM są dostępne. " +
+            "Nie oznacza to jeszcze, że Minecraft i renderowanie OpenGL uruchomią się na iPhonie."
     }
 }
