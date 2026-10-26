@@ -1,7 +1,7 @@
 import Foundation
 
 protocol MinecraftRuntime {
-    func launch(version: String, account: MinecraftAccount?) async throws
+    func launch(version: String, account: MinecraftAccount?, offlineNickname: String?) async throws
 }
 
 struct NovaEngineRuntime: MinecraftRuntime {
@@ -27,16 +27,38 @@ struct NovaEngineRuntime: MinecraftRuntime {
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
             throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
         }
-        throw NovaEngineLaunchError.missingJavaAndRenderer(NovaJavaRuntimeRegistry.availability(for: plan))
+        guard let nickname = offlineNickname else {
+            throw NovaEngineLaunchError.missingJavaAndRenderer("Wybierz profil offline. Start przez konto Microsoft wymaga jeszcze przekazania tokenu gry do JVM.")
+        }
+        guard let major = NovaJavaRuntimeRegistry.requiredMajor(for: plan),
+              let java = NovaJavaRuntimeRegistry.frameworkURL(major: major),
+              FileManager.default.fileExists(atPath: java.path) else {
+            throw NovaEngineLaunchError.missingJavaAndRenderer(NovaJavaRuntimeRegistry.availability(for: plan))
+        }
+        guard let frameworks = Bundle.main.privateFrameworksURL,
+              FileManager.default.fileExists(atPath: frameworks
+                  .appendingPathComponent("NovaLWJGLBridge.framework/NovaLWJGLBridge").path) else {
+            throw NovaEngineLaunchError.missingJavaAndRenderer(
+                "Java \\(major) jest dostępna, ale brak natywnego mostu LWJGL/Metal. Nie można bezpiecznie uruchomić klienta Minecraft."
+            )
+        }
+        let args = try prepareOfflineArguments(version: version, nickname: nickname)
+        let code = await Task.detached(priority: .userInitiated) {
+            NovaGameRunner.run(args, javaMajor: major)
+        }.value
+        guard code == 0 else { throw NovaEngineLaunchError.jvmFailure(code) }
     }
 }
 
 enum NovaEngineLaunchError: LocalizedError {
     case incompleteInstallation(String)
     case missingJavaAndRenderer(String)
+    case jvmFailure(Int32)
 
     var errorDescription: String? {
         switch self {
+        case .jvmFailure(let code):
+            return "Nie udało się uruchomić klasy głównej Minecraft przez JNI (kod: \\(code))."
         case .incompleteInstallation(let report):
             return "NovaEngine: instalacja niekompletna. \(report)"
         case .missingJavaAndRenderer(let report):
