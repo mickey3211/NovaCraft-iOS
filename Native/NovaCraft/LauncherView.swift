@@ -212,6 +212,11 @@ struct LauncherView: View {
                         } label: {
                             Label("Test renderowania Metal", systemImage: "cube.transparent.fill")
                         }
+                        NavigationLink {
+                            NovaBlockTestScreen()
+                        } label: {
+                            Label("Test grafiki 3D — obracający się blok", systemImage: "cube.fill")
+                        }
                         Text(NovaHardwareDiagnostics.metalStatus())
                         Text(NovaHardwareDiagnostics.javaStatus())
                         Text(NovaJVMProbe.report())
