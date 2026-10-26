@@ -254,6 +254,14 @@ int nova_jli_launch_main(const char *runtime_path,
     home[len] = 0;
     if (snprintf(jli_path, sizeof(jli_path), "%s/lib/libjli.dylib", home) >= sizeof(jli_path) ||
         snprintf(java_exe, sizeof(java_exe), "%s/bin/java", home) >= sizeof(java_exe)) return -42;
+    if (access(java_exe, R_OK) != 0) {
+        nova_checkpoint("JLI: brak bin/java w kompletnym Java 21; sprawdź pakowanie JRE i podpis IPA");
+        return -51;
+    }
+    if (access(runtime_path, R_OK) != 0) {
+        nova_checkpoint("JLI: brak dostępnego pliku libjvm.dylib w podpisanym Java 21");
+        return -52;
+    }
     if (access(jli_path, R_OK) != 0) {
         nova_checkpoint("JLI: brak podpisanej biblioteki libjli.dylib");
         return -43;
