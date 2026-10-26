@@ -132,7 +132,7 @@ final class LauncherState: ObservableObject {
     }
 
     func testJVMStartup() async {
-        message = "Uruchamianie testu JNI…"
+        message = "Sprawdzanie bibliotek Java 21 i ich podpisów…"
         let result = await Task.detached(priority: .userInitiated) {
             NovaJNIStartupTest.run()
         }.value
