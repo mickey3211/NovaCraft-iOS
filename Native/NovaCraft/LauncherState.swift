@@ -12,6 +12,7 @@ final class LauncherState: ObservableObject {
     @Published var message = "Gotowy"
     @Published var lastCrashStage: String?
     @Published var lastHotSpotReport: String?
+    @Published var lastJavaOutput: String?
     @Published var account: MinecraftAccount?
     @Published var offlineProfiles: [OfflineProfile] = [] {
         didSet { if let data = try? JSONEncoder().encode(offlineProfiles) { UserDefaults.standard.set(data, forKey: "offline-profiles") } }
@@ -39,6 +40,7 @@ final class LauncherState: ObservableObject {
             let log = Self.lastJVMCheckpoint()
             lastCrashStage = log
             lastHotSpotReport = Self.lastHotSpotCrashReport()
+            lastJavaOutput = Self.lastJavaOutputLog()
             message = "Poprzednie uruchomienie zakończyło się nieoczekiwanie. Etap: \(log ?? "nieznany")."
         }
         Task { await refresh() }
@@ -185,6 +187,19 @@ final class LauncherState: ObservableObject {
         return String(decoding: bytes, as: UTF8.self)
     }
 
+    private static func lastJavaOutputLog() -> String? {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let file = documents.appendingPathComponent("NovaCraft-java-output.log")
+        guard let handle = try? FileHandle(forReadingFrom: file) else { return nil }
+        defer { try? handle.close() }
+        let length = (try? handle.seekToEnd()) ?? 0
+        let maxBytes: UInt64 = 24 * 1024
+        try? handle.seek(toOffset: length > maxBytes ? length - maxBytes : 0)
+        guard let data = try? handle.read(upToCount: Int(maxBytes)), !data.isEmpty else { return nil }
+        return String(decoding: data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func launch() async {
         guard !busy, selectedInstalled else {
             if !selectedInstalled { message = "Najpierw pobierz pliki wybranej wersji Minecraft." }
@@ -193,9 +208,11 @@ final class LauncherState: ObservableObject {
         busy = true
         lastCrashStage = nil
         lastHotSpotReport = nil
+        lastJavaOutput = nil
         // Eliminate stale crash markers before each attempted launch.
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         try? FileManager.default.removeItem(at: documents.appendingPathComponent("NovaCraft-jvm-last-stage.txt"))
+        try? FileManager.default.removeItem(at: documents.appendingPathComponent("NovaCraft-java-output.log"))
         message = "Uruchamianie Minecraft \(selectedVersion)…"
         UserDefaults.standard.set(true, forKey: "novacraft-jvm-launch-in-progress")
         UserDefaults.standard.synchronize()
@@ -205,7 +222,9 @@ final class LauncherState: ObservableObject {
         }
         do {
             try await runtime.launch(version: selectedVersion, account: account, offlineNickname: activeOfflineProfile?.nickname)
-            message = "Proces Minecraft zakończył działanie."
+            message = "Java zakończyła działanie; widok gry nie jest jeszcze połączony z launcherem. Sprawdź dziennik Java."
+            lastCrashStage = Self.lastJVMCheckpoint()
+            lastJavaOutput = Self.lastJavaOutputLog()
         } catch {
             message = error.localizedDescription
             if let checkpoint = Self.lastJVMCheckpoint() {
@@ -213,6 +232,7 @@ final class LauncherState: ObservableObject {
                 message += " Etap JVM: \(checkpoint)."
             }
             lastHotSpotReport = Self.lastHotSpotCrashReport()
+            lastJavaOutput = Self.lastJavaOutputLog()
         }
     }
 
