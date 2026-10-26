@@ -8,6 +8,14 @@ FRAME="$APP/Frameworks/NovaJava21.framework"
 [[ -s "$FRAME/lib/libjli.dylib" ]] || { echo "Missing Java Launcher Interface"; exit 1; }
 [[ -s "$FRAME/lib/server/libjvm.dylib" ]] || { echo "Missing Java21 libjvm under JAVA_HOME"; exit 1; }
 [[ -s "$FRAME/lib/modules" ]] || { echo "Missing Java21 modules"; exit 1; }
+[[ -s "$FRAME/release" ]] || { echo "Missing Java21 release metadata"; exit 1; }
+grep -Eq '^JAVA_VERSION="21([.]|")' "$FRAME/release" || {
+  echo "Bundled Java home is not Java21"; exit 1;
+}
+[[ -d "$FRAME/conf" ]] || {
+  echo "Missing Java21 conf/ folder required by JVM bootstrap"; exit 1;
+}
+[[ -f "$FRAME/bin/java" ]] || echo "Warning: JRE archive has no bin/java; JLI launcher executable lookup may fail."
 [[ -s "$APP/Frameworks/liblwjgl.dylib" ]] || { echo "Missing LWJGL native"; exit 1; }
 [[ -s "$APP/LWJGL-iOS/lwjgl.jar" ]] || { echo "Missing LWJGL jar"; exit 1; }
 

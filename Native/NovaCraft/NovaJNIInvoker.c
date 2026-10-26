@@ -25,6 +25,15 @@ static void nova_checkpoint(const char *stage) {
     fclose(out);
 }
 
+// Include dyld's concrete failure reason in the next-start crash diagnostics.
+static void nova_checkpoint_loader_failure(const char *stage) {
+    const char *reason = dlerror();
+    char report[768];
+    snprintf(report, sizeof(report), "%.120s: %.590s", stage,
+             reason ? reason : "brak szczegółów od iOS dyld");
+    nova_checkpoint(report);
+}
+
 // JNI invocation ABI. Function table slots follow the published JNI specification.
 // Using a small C ABI bridge avoids importing desktop-only JDK headers into Xcode.
 typedef int32_t jint;
@@ -101,7 +110,7 @@ int nova_jni_invoke_main(const char *runtime_path,
     }
     nova_checkpoint("Ładowanie biblioteki JVM (dlopen)");
     void *library = dlopen(runtime_path, RTLD_NOW | RTLD_LOCAL);
-    if (!library) return -12;
+    if (!library) { nova_checkpoint_loader_failure("JNI: nie można załadować libjvm"); return -12; }
     nova_checkpoint("JVM załadowana; wyszukiwanie JNI_CreateJavaVM");
     CreateVM create = (CreateVM)dlsym(library, "JNI_CreateJavaVM");
     if (!create) { dlclose(library); return -13; }
@@ -256,7 +265,7 @@ int nova_jli_launch_main(const char *runtime_path,
     nova_checkpoint("JLI: ładowanie libjli.dylib");
     void *handle = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
     if (!handle) {
-        nova_checkpoint("JLI: iOS odmówił załadowania libjli.dylib");
+        nova_checkpoint_loader_failure("JLI: nie można załadować libjli.dylib");
         return -44;
     }
     NovaJLILaunch launch = (NovaJLILaunch)dlsym(handle, "JLI_Launch");
