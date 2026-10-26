@@ -62,7 +62,7 @@ enum NovaLaunchArgumentBuilder {
             "user_properties": "{}",
             "resolution_width": "1280",
             "resolution_height": "720",
-            "classpath": plan.classpath.map(\\.path).joined(separator: ":"),
+            "classpath": plan.classpath.map(\.path).joined(separator: ":"),
             "classpath_separator": ":",
             "library_directory": root.appendingPathComponent("libraries", isDirectory: true).path,
             "natives_directory": root.appendingPathComponent("natives", isDirectory: true).path,
@@ -102,12 +102,12 @@ enum NovaLaunchArgumentBuilder {
         }
         let jvmExpanded = jvmRaw.map { argument in
             values.reduce(argument) { text, pair in
-                text.replacingOccurrences(of: "${\\(pair.key)}", with: pair.value)
+                text.replacingOccurrences(of: "${\(pair.key)}", with: pair.value)
             }
         }
         // Older versions do not define JVM arguments in version.json.
         let jvmArguments = jvmExpanded.isEmpty
-            ? ["-cp", plan.classpath.map(\\.path).joined(separator: ":")]
+            ? ["-cp", plan.classpath.map(\.path).joined(separator: ":")]
             : jvmExpanded
         // Fail closed rather than pass unresolved placeholders to a future JVM.
         guard !expanded.contains(where: { $0.contains("${") }),
