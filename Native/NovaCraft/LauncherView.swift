@@ -148,7 +148,7 @@ struct LauncherView: View {
                                         .textSelection(.enabled)
                                 }
                                 .padding(.vertical, 4)
-                                Button("Sprawdź dostępność TCP") {
+                                Button("Pobierz status Minecraft") {
                                     Task { await state.probeServer(server.address) }
                                 }
                                 .font(.caption)
@@ -158,7 +158,7 @@ struct LauncherView: View {
                     }
                     Section("Diagnostyka serwera") {
                         Text(state.serverProbeStatus).font(.footnote)
-                        Label("Test TCP nie sprawdza protokołu Minecraft ani logowania. Multiplayer nadal wymaga działającego silnika gry.", systemImage: "info.circle")
+                        Label("Status pobiera wersję, liczbę graczy i opis serwera. Dołączenie do gry nadal wymaga działającego silnika i odpowiedniego logowania.", systemImage: "info.circle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
