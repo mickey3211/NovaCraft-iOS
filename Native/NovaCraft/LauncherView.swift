@@ -433,6 +433,17 @@ struct LauncherView: View {
                     .font(.subheadline)
             }
 
+            if let stage = state.lastCrashStage {
+                Label("Ostatnia awaria JVM: \(stage)", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                Button {
+                    UIPasteboard.general.string = "NovaCraft JNI: \(stage)"
+                } label: {
+                    Label("Kopiuj etap awarii", systemImage: "doc.on.doc")
+                }
+                .font(.footnote)
+            }
             if !state.message.isEmpty {
                 Text(state.message)
                     .font(.footnote)
