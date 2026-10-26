@@ -45,9 +45,19 @@ struct NovaEngineRuntime: MinecraftRuntime {
             )
         }
         let args = try prepareOfflineArguments(version: version, nickname: nickname)
-        let code = await Task.detached(priority: .userInitiated) {
-            NovaGameRunner.run(args, javaMajor: major)
-        }.value
+        // A Java VM can live for hours and may initialize deep native stack
+        // frames. Never occupy a Swift cooperative-concurrency worker thread.
+        // Use one dedicated POSIX-backed NSThread with a predictable stack.
+        let code = await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
+            let javaThread = Thread {
+                let result = NovaGameRunner.run(args, javaMajor: major)
+                continuation.resume(returning: result)
+            }
+            javaThread.name = "NovaCraft-Java-(major)"
+            javaThread.stackSize = 16 * 1024 * 1024
+            javaThread.qualityOfService = .userInitiated
+            javaThread.start()
+        }
         guard code == 0 else { throw NovaEngineLaunchError.jvmFailure(code) }
     }
 }
