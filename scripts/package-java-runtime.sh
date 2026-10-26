@@ -1,49 +1,49 @@
 #!/bin/bash
 set -euo pipefail
-
-# Optional signed-code packaging for a separately supplied iOS ARM64 Java 21
-# framework. This does not build OpenJDK or supply the framework binary.
 APP="${1:?Usage: package-java-runtime.sh path/to/NovaCraft.app}"
-SOURCE="Vendor/NovaJavaRuntime.framework"
-if [[ ! -d "$SOURCE" ]]; then
-  echo "No iOS Java runtime supplied; building launcher without JVM."
-  exit 0
-fi
-BINARY="$SOURCE/NovaJavaRuntime"
-PLIST="$SOURCE/Info.plist"
-test -f "$BINARY" || { echo "Missing framework executable"; exit 1; }
-test -f "$PLIST" || { echo "Missing framework Info.plist"; exit 1; }
+[[ -d "$APP" ]] || { echo "Missing app bundle"; exit 1; }
 
-IDENTIFIER=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$PLIST")
-EXECUTABLE=$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$PLIST")
-[[ "$EXECUTABLE" == "NovaJavaRuntime" ]] || { echo "Incorrect CFBundleExecutable"; exit 1; }
-[[ -n "$IDENTIFIER" ]] || { echo "Missing bundle identifier"; exit 1; }
+validate_and_copy() {
+  local name="$1" source="Vendor/$1.framework"
+  local binary="$source/$name" plist="$source/Info.plist"
+  [[ -d "$source" ]] || return 0
+  [[ -f "$binary" && -f "$plist" ]] || { echo "Incomplete $name"; exit 1; }
+  local executable identifier
+  executable=$(/usr/libexec/PlistBuddy -c "Print CFBundleExecutable" "$plist")
+  identifier=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$plist")
+  [[ "$executable" == "$name" && -n "$identifier" ]] || { echo "Invalid $name Info.plist"; exit 1; }
+  lipo -archs "$binary" | grep -qw arm64 || { echo "$name lacks arm64"; exit 1; }
+  local tmp
+  tmp=$(mktemp)
+  lipo "$binary" -thin arm64 -output "$tmp"
+  if ! xcrun vtool -show-build "$tmp" | grep -Eq 'platform (IOS|2)([[:space:]]|$)'; then
+    rm -f "$tmp"
+    echo "$name is not built for iOS device"
+    exit 1
+  fi
+  local symbols
+  symbols=$(xcrun nm -gU "$tmp")
+  rm -f "$tmp"
+  grep -q '_JNI_CreateJavaVM' <<< "$symbols" || { echo "$name missing JNI_CreateJavaVM"; exit 1; }
+  grep -q '_JNI_GetCreatedJavaVMs' <<< "$symbols" || { echo "$name missing JNI_GetCreatedJavaVMs"; exit 1; }
+  mkdir -p "$APP/Frameworks"
+  ditto "$source" "$APP/Frameworks/$name.framework"
+  echo "Embedded $name (iOS arm64)."
+}
 
-if ! lipo -archs "$BINARY" | grep -qw arm64; then
-  echo "JVM framework does not contain arm64"; exit 1
+count=0
+for major in 8 16 17 21 25; do
+  if [[ -d "Vendor/NovaJava${major}.framework" ]]; then
+    validate_and_copy "NovaJava${major}"
+    count=$((count + 1))
+  fi
+done
+if [[ -d Vendor/NovaJavaRuntime.framework ]]; then
+  validate_and_copy "NovaJavaRuntime"
+  count=$((count + 1))
 fi
-
-# macOS arm64 and iOS arm64 are NOT interchangeable. Check Mach-O build
-# platform on an arm64 slice, not just the CPU architecture.
-TMPDIR_JVM=$(mktemp -d)
-trap 'rm -rf "$TMPDIR_JVM"' EXIT
-lipo "$BINARY" -thin arm64 -output "$TMPDIR_JVM/runtime"
-if ! xcrun vtool -show-build "$TMPDIR_JVM/runtime" | grep -Eq 'platform (IOS|2)([[:space:]]|$)'; then
-  echo "JVM binary is not built for iOS (device). macOS/simulator frameworks are rejected."
-  exit 1
+if (( count == 0 )); then
+  echo "No iOS JVM binaries provided. IPA cannot launch Minecraft Java."
+else
+  echo "Embedded $count JVM framework(s). All executable code must be signed when installing IPA."
 fi
-
-SYMBOLS=$(xcrun nm -gU "$TMPDIR_JVM/runtime")
-if ! grep -q '_JNI_CreateJavaVM' <<< "$SYMBOLS"; then
-  echo "JVM framework does not export JNI_CreateJavaVM"
-  exit 1
-fi
-if ! grep -q '_JNI_GetCreatedJavaVMs' <<< "$SYMBOLS"; then
-  echo "JVM framework does not export JNI_GetCreatedJavaVMs"
-  exit 1
-fi
-
-mkdir -p "$APP/Frameworks"
-ditto "$SOURCE" "$APP/Frameworks/NovaJavaRuntime.framework"
-echo "Validated iOS arm64 JNI framework embedded."
-echo "The app and ALL embedded executable dependencies must be signed before installation."
