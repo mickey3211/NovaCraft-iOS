@@ -25,6 +25,13 @@ enum NovaGameRunner {
         jvmOptions.append("-Xint")
         jvmOptions.append("-XX:+UseSerialGC")
         jvmOptions.append("-XX:-UsePerfData")
+        // iOS sideload builds commonly lack extended-virtual-addressing rights.
+        // Avoid HotSpot reserving a large compressed-class-pointer address range.
+        jvmOptions.append("-XX:-UseCompressedClassPointers")
+        // The game runs on a dedicated Java thread rather than the UIKit main thread.
+        // This does not provide a renderer; it only configures LWJGL's thread checks.
+        jvmOptions.append("-Dorg.lwjgl.glfw.checkThread0=false")
+        jvmOptions.append("-Dorg.lwjgl.system.allocator=system")
         // If HotSpot encounters a native fatal error, preserve hs_err_pid
         // in Documents so it can be exported after reopening NovaCraft.
         if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
