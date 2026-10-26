@@ -10,6 +10,7 @@ final class LauncherState: ObservableObject {
     @Published var busy = false
     @Published var refreshing = false
     @Published var message = "Gotowy"
+    @Published var lastCrashStage: String?
     @Published var account: MinecraftAccount?
     @Published var offlineProfiles: [OfflineProfile] = [] {
         didSet { if let data = try? JSONEncoder().encode(offlineProfiles) { UserDefaults.standard.set(data, forKey: "offline-profiles") } }
@@ -33,6 +34,11 @@ final class LauncherState: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: "offline-profiles"),
            let saved = try? JSONDecoder().decode([OfflineProfile].self, from: data) { offlineProfiles = saved }
         if let id = UserDefaults.standard.string(forKey: "offline-selected") { selectedOfflineID = UUID(uuidString: id) }
+        if UserDefaults.standard.bool(forKey: "novacraft-jvm-launch-in-progress") {
+            let log = Self.lastJVMCheckpoint()
+            lastCrashStage = log
+            message = "Poprzednie uruchomienie zakończyło się nieoczekiwanie. Etap: \(log ?? "nieznany")."
+        }
         Task { await refresh() }
     }
 
@@ -73,7 +79,7 @@ final class LauncherState: ObservableObject {
             if !versions.contains(where: { $0.id == selectedVersion }) {
                 select(versions.first(where: { $0.type == "release" })?.id ?? "")
             }
-            message = "Lista wersji zaktualizowana"
+            if lastCrashStage == nil { message = "Lista wersji zaktualizowana" }
         } catch {
             message = "Nie udało się pobrać manifestu: \(error.localizedDescription)"
         }
@@ -153,6 +159,12 @@ final class LauncherState: ObservableObject {
         }
     }
 
+    private static func lastJVMCheckpoint() -> String? {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let file = documents.appendingPathComponent("NovaCraft-jvm-last-stage.txt")
+        return try? String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     func launch() async {
         guard !busy, selectedInstalled else {
             if !selectedInstalled { message = "Najpierw pobierz pliki wybranej wersji Minecraft." }
@@ -160,11 +172,21 @@ final class LauncherState: ObservableObject {
         }
         busy = true
         message = "Uruchamianie Minecraft \(selectedVersion)…"
-        defer { busy = false }
+        UserDefaults.standard.set(true, forKey: "novacraft-jvm-launch-in-progress")
+        UserDefaults.standard.synchronize()
+        defer {
+            UserDefaults.standard.set(false, forKey: "novacraft-jvm-launch-in-progress")
+            busy = false
+        }
         do {
             try await runtime.launch(version: selectedVersion, account: account, offlineNickname: activeOfflineProfile?.nickname)
             message = "Proces Minecraft zakończył działanie."
-        } catch { message = error.localizedDescription }
+        } catch {
+            message = error.localizedDescription
+            if let checkpoint = Self.lastJVMCheckpoint() {
+                message += " Etap JVM: \(checkpoint)."
+            }
+        }
     }
 
     @discardableResult
