@@ -21,8 +21,8 @@ struct NovaEngineSmoke {
           "mainClass": "net.minecraft.client.main.Main",
           "javaVersion": { "component": "java-runtime-delta", "majorVersion": 21 },
           "arguments": {
-            "game": ["--username", "\${auth_player_name}", {"rules": [{"action": "allow"}], "value": "--demo"}],
-            "jvm": ["-cp", "\${classpath}"]
+            "game": ["--username", "${auth_player_name}", {"rules": [{"action": "allow"}], "value": "--demo"}],
+            "jvm": ["-cp", "${classpath}"]
           },
           "libraries": [
             {"downloads": {"artifact": {"path": "example/test/1.0/test-1.0.jar"}}},
