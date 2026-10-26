@@ -81,6 +81,66 @@ jobs:
           cp -R bin/RELEASE/. "$RUNNER_TEMP/lwjgl-artifact/jars/"
           cp -R bin/out/. "$RUNNER_TEMP/lwjgl-artifact/native/"
           find "$RUNNER_TEMP/lwjgl-artifact/native" -type f -exec file {} \;
+      - name: Stage compiled iOS LWJGL for NovaCraft
+        run: |
+          set -euo pipefail
+          mkdir -p Vendor/LWJGL-iOS/jars Vendor/LWJGL-iOS/native
+          find "$RUNNER_TEMP/lwjgl-artifact/jars" -type f -name '*.jar' \
+            ! -name '*-natives-*' ! -name '*-sources.jar' \
+            -exec cp {} Vendor/LWJGL-iOS/jars/ \;
+          cp "$RUNNER_TEMP/lwjgl-artifact/native/"*.dylib Vendor/LWJGL-iOS/native/
+          test -s Vendor/LWJGL-iOS/native/liblwjgl.dylib
+          test -n "$(find Vendor/LWJGL-iOS/jars -maxdepth 1 -name '*.jar' -print -quit)"
+          ls -lh Vendor/LWJGL-iOS/native/
+          ls Vendor/LWJGL-iOS/jars/
+
+      - name: Install XcodeGen for integrated IPA
+        run: brew install xcodegen
+
+      - name: Bundle verified iOS Java21 and OpenJDK resources
+        run: |
+          set -euo pipefail
+          bash scripts/build-vendor-ios-jre21.sh
+          mkdir -p "$RUNNER_TEMP/novajdk" Vendor JavaRuntime/lib
+          cd "$RUNNER_TEMP/novajdk"
+          curl --fail --location --retry 3 -o OpenJDK.xcframework.zip \
+            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/OpenJDK.xcframework.zip
+          echo "ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f  OpenJDK.xcframework.zip" | shasum -a 256 -c -
+          curl --fail --location --retry 3 -o java_bundle-device.zip \
+            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/java_bundle-device.zip
+          echo "37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a  java_bundle-device.zip" | shasum -a 256 -c -
+          unzip -q OpenJDK.xcframework.zip
+          unzip -q java_bundle-device.zip
+          test -s java_bundle-device/lib/modules
+          ditto OpenJDK.xcframework "$GITHUB_WORKSPACE/Vendor/OpenJDK.xcframework"
+          ditto java_bundle-device/lib/modules "$GITHUB_WORKSPACE/JavaRuntime/lib/modules"
+
+      - name: Compile NovaCraft with iOS JVM and LWJGL
+        run: |
+          set -euo pipefail
+          xcodegen generate
+          xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" CODE_SIGNING_ALLOWED=NO build
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
+          bash scripts/package-java-runtime.sh "$APP"
+          bash scripts/package-upstream-lwjgl-ios.sh "$APP"
+          test -s "$APP/Frameworks/NovaJava21.framework/NovaJava21"
+          test -s "$APP/Frameworks/liblwjgl.dylib"
+          test -s "$APP/LWJGL-iOS/lwjgl.jar"
+          mkdir -p "$RUNNER_TEMP/integrated-ipa/Payload" dist
+          ditto "$APP" "$RUNNER_TEMP/integrated-ipa/Payload/NovaCraft.app"
+          cd "$RUNNER_TEMP/integrated-ipa"
+          zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa" Payload
+          test -s "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Java21-LWJGL-unsigned-IPA-test
+          path: dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa
+          retention-days: 7
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v4
         with:
           name: upstream-ios-lwjgl-components-not-IPA
