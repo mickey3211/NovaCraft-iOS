@@ -100,23 +100,10 @@ jobs:
       - name: Install XcodeGen for integrated IPA
         run: brew install xcodegen
 
-      - name: Bundle verified iOS Java21 and OpenJDK resources
+      - name: Bundle one verified iOS Java21 runtime
         run: |
           set -euo pipefail
           bash scripts/build-vendor-ios-jre21.sh
-          mkdir -p "$RUNNER_TEMP/novajdk" Vendor JavaRuntime/lib
-          cd "$RUNNER_TEMP/novajdk"
-          curl --fail --location --retry 3 -o OpenJDK.xcframework.zip \
-            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/OpenJDK.xcframework.zip
-          echo "ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f  OpenJDK.xcframework.zip" | shasum -a 256 -c -
-          curl --fail --location --retry 3 -o java_bundle-device.zip \
-            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/java_bundle-device.zip
-          echo "37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a  java_bundle-device.zip" | shasum -a 256 -c -
-          unzip -q OpenJDK.xcframework.zip
-          unzip -q java_bundle-device.zip
-          test -s java_bundle-device/lib/modules
-          ditto OpenJDK.xcframework "$GITHUB_WORKSPACE/Vendor/OpenJDK.xcframework"
-          ditto java_bundle-device/lib/modules "$GITHUB_WORKSPACE/JavaRuntime/lib/modules"
 
       - name: Compile NovaCraft with iOS JVM and LWJGL
         run: |
