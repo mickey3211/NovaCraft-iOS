@@ -444,6 +444,18 @@ struct LauncherView: View {
                 }
                 .font(.footnote)
             }
+            if let report = state.lastHotSpotReport {
+                Label("Zapisano raport awarii JVM (HotSpot)", systemImage: "doc.text.magnifyingglass")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                Button {
+                    // Export is explicit: reports may contain device paths.
+                    UIPasteboard.general.string = report
+                } label: {
+                    Label("Kopiuj raport JVM", systemImage: "doc.on.doc")
+                }
+                .font(.footnote)
+            }
             if !state.message.isEmpty {
                 Text(state.message)
                     .font(.footnote)
