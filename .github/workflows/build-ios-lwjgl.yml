@@ -121,11 +121,19 @@ jobs:
           test -s "$APP/Frameworks/NovaJava21.framework/NovaJava21"
           test -s "$APP/Frameworks/liblwjgl.dylib"
           test -s "$APP/LWJGL-iOS/lwjgl.jar"
+          bash scripts/audit-ios-game-ipa.sh "$APP"
           mkdir -p "$RUNNER_TEMP/integrated-ipa/Payload" dist
           ditto "$APP" "$RUNNER_TEMP/integrated-ipa/Payload/NovaCraft.app"
           cd "$RUNNER_TEMP/integrated-ipa"
           zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa" Payload
           test -s "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-iOS-native-signing-inventory
+          path: ios-native-signing-inventory.txt
+          retention-days: 7
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v4
         with:
