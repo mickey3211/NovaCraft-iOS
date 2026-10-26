@@ -44,6 +44,12 @@ struct NovaEngineRuntime: MinecraftRuntime {
                 "Java \(major) jest dostępna, ale brak bibliotek LWJGL dla iOS. Nie można bezpiecznie uruchomić klienta Minecraft."
             )
         }
+        // The iOS app bundle is read-only. Minecraft needs a writable game
+        // directory before its settings, resource cache and logs are created.
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("game", isDirectory: true),
+            withIntermediateDirectories: true
+        )
         let args = try prepareOfflineArguments(version: version, nickname: nickname)
         // A Java VM can live for hours and may initialize deep native stack
         // frames. Never occupy a Swift cooperative-concurrency worker thread.
