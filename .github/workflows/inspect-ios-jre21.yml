@@ -1,0 +1,51 @@
+name: Inspect real iOS Java 21 runtime candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/inspect-ios-jre21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve upstream iOS ARM64 JRE 21 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/jre21"
+          cd "$RUNNER_TEMP/jre21"
+          curl --fail --location --retry 3 --max-time 240 \
+            -o jre21-ios-aarch64.zip \
+            'https://nightly.link/PojavLauncherTeam/android-openjdk-build-multiarch/workflows/build/buildjre17-21/jre21-ios-aarch64.zip'
+          shasum -a 256 jre21-ios-aarch64.zip | tee SHA256.txt
+          unzip -l jre21-ios-aarch64.zip | tee zip-inventory.txt
+          mkdir extracted
+          unzip -q jre21-ios-aarch64.zip -d extracted
+          find extracted -type f -print > all-files.txt
+          grep -Ei '(libjvm|release$|/modules$|\.dylib$|\.framework/)' all-files.txt > relevant-files.txt || true
+          cat relevant-files.txt
+          find extracted -type f -name '*.tar.xz' -print > archives.txt
+          while IFS= read -r archive; do
+            echo "===== Archive: $archive ====="
+            tar -tJf "$archive" | grep -Ei '(libjvm|release$|/modules$|\.dylib$)' | head -100 || true
+          done < archives.txt
+          echo "This inspects, but does not trust, bundle or automatically execute the unsigned candidate."
+      - name: Upload JRE21 candidate and audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-JRE21-candidate-not-embedded
+          path: |
+            ${{ runner.temp }}/jre21/jre21-ios-aarch64.zip
+            ${{ runner.temp }}/jre21/SHA256.txt
+            ${{ runner.temp }}/jre21/relevant-files.txt
+            ${{ runner.temp }}/jre21/zip-inventory.txt
+          if-no-files-found: error
+          retention-days: 7
