@@ -66,13 +66,18 @@ jobs:
           brew install autoconf
           export BOOT_JDK="$JAVA_HOME"
           bash scripts/build-openjdk-mobile-ios.sh
-          cp "$OPENJDK_MOBILE_SRC/build/ios-aarch64-zero-release/images/static-libs/lib/zero/libjvm.a" "$RUNNER_TEMP/libjvm-ios-zero.a"
-          shasum -a 256 "$RUNNER_TEMP/libjvm-ios-zero.a" | tee "$RUNNER_TEMP/libjvm-ios-zero.sha256"
+          IMAGE="$OPENJDK_MOBILE_SRC/build/ios-aarch64-zero-release/images/static-libs"
+          test -s "$IMAGE/lib/zero/libjvm.a"
+          # Minecraft requires much more than libjvm.a: include the complete
+          # generated native image, modules and license metadata where present.
+          tar -C "$IMAGE" -czf "$RUNNER_TEMP/openjdk-ios-zero-static-image.tar.gz" .
+          shasum -a 256 "$RUNNER_TEMP/openjdk-ios-zero-static-image.tar.gz" | tee "$RUNNER_TEMP/openjdk-ios-zero-static-image.sha256"
+          du -h "$RUNNER_TEMP/openjdk-ios-zero-static-image.tar.gz"
       - uses: actions/upload-artifact@v4
         with:
-          name: OpenJDK-iOS-Zero-static-JVM-not-IPA
+          name: OpenJDK-iOS-Zero-complete-static-image-not-IPA
           path: |
-            ${{ runner.temp }}/libjvm-ios-zero.a
-            ${{ runner.temp }}/libjvm-ios-zero.sha256
+            ${{ runner.temp }}/openjdk-ios-zero-static-image.tar.gz
+            ${{ runner.temp }}/openjdk-ios-zero-static-image.sha256
           retention-days: 7
           if-no-files-found: error
