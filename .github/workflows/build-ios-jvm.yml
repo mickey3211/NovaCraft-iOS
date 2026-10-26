@@ -61,10 +61,10 @@ jobs:
         env:
           OPENJDK_MOBILE_SRC: ${{ runner.temp }}/mobile
           IOS_JDK_SUPPORT: ${{ runner.temp }}/ios-support
-          BOOT_JDK: ${{ env.JAVA_HOME }}
         run: |
           set -euo pipefail
           brew install autoconf
+          export BOOT_JDK="$JAVA_HOME"
           bash scripts/build-openjdk-mobile-ios.sh
           cp "$OPENJDK_MOBILE_SRC/build/ios-aarch64-zero-release/images/static-libs/lib/zero/libjvm.a" "$RUNNER_TEMP/libjvm-ios-zero.a"
           shasum -a 256 "$RUNNER_TEMP/libjvm-ios-zero.a" | tee "$RUNNER_TEMP/libjvm-ios-zero.sha256"
