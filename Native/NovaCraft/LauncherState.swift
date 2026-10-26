@@ -149,7 +149,7 @@ final class LauncherState: ObservableObject {
 
     func launch() async {
         do {
-            try await runtime.launch(version: selectedVersion, account: account)
+            try await runtime.launch(version: selectedVersion, account: account, offlineNickname: activeOfflineProfile?.nickname)
         } catch { message = error.localizedDescription }
     }
 
