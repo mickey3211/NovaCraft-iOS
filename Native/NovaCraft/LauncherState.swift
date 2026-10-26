@@ -59,8 +59,8 @@ final class LauncherState: ObservableObject {
     }
 
     func probeServer(_ address: String) async {
-        serverProbeStatus = "Sprawdzanie połączenia TCP…"
-        serverProbeStatus = await NovaServerProbe.check(address: address)
+        serverProbeStatus = "Odczytywanie statusu Minecraft Java…"
+        serverProbeStatus = await NovaMinecraftServerStatus.query(address: address)
     }
 
     func refresh() async {
