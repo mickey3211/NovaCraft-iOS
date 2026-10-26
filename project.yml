@@ -13,6 +13,14 @@ targets:
     platform: iOS
     sources:
       - path: Native/NovaCraft
+      - path: JavaRuntime/lib
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - framework: Vendor/OpenJDK.xcframework
+        embed: false
+        link: true
+      - sdk: libz.tbd
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pl.novacraft.launcher
@@ -25,3 +33,4 @@ targets:
         INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CODE_SIGN_STYLE: Automatic
+        OTHER_LDFLAGS: -lc++
