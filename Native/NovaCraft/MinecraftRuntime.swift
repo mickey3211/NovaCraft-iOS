@@ -27,7 +27,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
             throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
         }
-        throw NovaEngineLaunchError.missingJavaAndRenderer(plan.summary)
+        throw NovaEngineLaunchError.missingJavaAndRenderer(NovaJavaRuntimeRegistry.availability(for: plan))
     }
 }
 
@@ -40,7 +40,7 @@ enum NovaEngineLaunchError: LocalizedError {
         case .incompleteInstallation(let report):
             return "NovaEngine: instalacja niekompletna. \(report)"
         case .missingJavaAndRenderer(let report):
-            return "NovaEngine 0.1: \(report). Brak uruchamialnej JVM na iOS i mostu LWJGL/Metal. Gra nie została uruchomiona."
+            return "NovaEngine: \(report) Gra nie została uruchomiona. Nadal brakuje kompletnego uruchamiania Java i LWJGL/Metal."
         }
     }
 }
