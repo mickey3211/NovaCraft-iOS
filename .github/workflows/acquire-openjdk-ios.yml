@@ -2,6 +2,11 @@ name: Acquire verified OpenJDK iOS device binaries
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/acquire-openjdk-ios.yml'
 
 permissions:
   contents: read
