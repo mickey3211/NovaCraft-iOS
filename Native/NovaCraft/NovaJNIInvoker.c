@@ -1,5 +1,6 @@
 #include "NovaJNIInvoker.h"
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,55 @@ static void nova_checkpoint_loader_failure(const char *stage) {
     snprintf(report, sizeof(report), "%.120s: %.590s", stage,
              reason ? reason : "brak szczegółów od iOS dyld");
     nova_checkpoint(report);
+}
+
+// Capture JVM stdout/stderr for an explicit user-initiated diagnostics export.
+// JLI may return without a crash when Minecraft fails before a window exists.
+// Logs stay in the app sandbox; they can contain usernames, server addresses,
+// filesystem paths or other sensitive information and must not be uploaded
+// automatically. Restore global file descriptors when the launch returns.
+static void nova_begin_java_log(int *saved_stdout, int *saved_stderr) {
+    *saved_stdout = -1;
+    *saved_stderr = -1;
+    const char *home = getenv("HOME");
+    if (!home) return;
+    char path[PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/Documents/NovaCraft-java-output.log", home);
+    if (n <= 0 || (size_t)n >= sizeof(path)) return;
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) return;
+    fflush(NULL);
+    int stdout_copy = dup(STDOUT_FILENO);
+    int stderr_copy = dup(STDERR_FILENO);
+    if (stdout_copy < 0 || stderr_copy < 0) {
+        if (stdout_copy >= 0) close(stdout_copy);
+        if (stderr_copy >= 0) close(stderr_copy);
+        close(fd);
+        return;
+    }
+    if (dup2(fd, STDOUT_FILENO) < 0 || dup2(fd, STDERR_FILENO) < 0) {
+        dup2(stdout_copy, STDOUT_FILENO);
+        dup2(stderr_copy, STDERR_FILENO);
+        close(stdout_copy);
+        close(stderr_copy);
+        close(fd);
+        return;
+    }
+    close(fd);
+    *saved_stdout = stdout_copy;
+    *saved_stderr = stderr_copy;
+    fprintf(stderr, "[NovaCraft] Java 21 JLI launch started.\n");
+    fflush(stderr);
+}
+
+static void nova_end_java_log(int saved_stdout, int saved_stderr, int exit_code) {
+    if (saved_stdout < 0 || saved_stderr < 0) return;
+    fprintf(stderr, "[NovaCraft] Java launcher returned exit code %d.\n", exit_code);
+    fflush(NULL);
+    dup2(saved_stdout, STDOUT_FILENO);
+    dup2(saved_stderr, STDERR_FILENO);
+    close(saved_stdout);
+    close(saved_stderr);
 }
 
 // JNI invocation ABI. Function table slots follow the published JNI specification.
@@ -333,9 +383,12 @@ int nova_jli_launch_main(const char *runtime_path,
     already_started = 1;
     retained_library = handle;
     nova_checkpoint("JLI: uruchamianie środowiska Java 21 i klasy Minecraft");
+    int saved_stdout = -1, saved_stderr = -1;
+    nova_begin_java_log(&saved_stdout, &saved_stderr);
     jint result = launch((int)i, argv, 0, NULL, 0, NULL,
                          "21", "21", "java", "openjdk",
                          0, 1, 0, 1);
+    nova_end_java_log(saved_stdout, saved_stderr, result);
     nova_checkpoint(result == 0 ? "JLI: Minecraft zakończył działanie" :
                                   "JLI: proces Java zakończył się błędem");
     free(native_property);
