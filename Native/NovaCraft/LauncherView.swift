@@ -207,6 +207,11 @@ struct LauncherView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     Section("NovaEngine") {
+                        NavigationLink {
+                            NovaMetalTestScreen()
+                        } label: {
+                            Label("Test renderowania Metal", systemImage: "cube.transparent.fill")
+                        }
                         Text(NovaHardwareDiagnostics.metalStatus())
                         Text(NovaHardwareDiagnostics.javaStatus())
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
