@@ -178,7 +178,7 @@ enum NovaEngineCore {
     private static func safePath(_ path: String) -> [String]? {
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
         guard !parts.isEmpty, parts.allSatisfy({
-            !$0.isEmpty && $0 != "." && $0 != ".." && !$0.contains("\\\\") && !$0.contains(":")
+            !$0.isEmpty && $0 != "." && $0 != ".." && !$0.contains("\\") && !$0.contains(":")
         }) else { return nil }
         return parts
     }
