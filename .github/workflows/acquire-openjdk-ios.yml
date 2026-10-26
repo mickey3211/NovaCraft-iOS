@@ -1,0 +1,52 @@
+name: Acquire verified OpenJDK iOS device binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/acquire-openjdk-ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  acquire:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Retrieve upstream device frameworks and runtime modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/jdk-ios"
+          cd "$RUNNER_TEMP/jdk-ios"
+          download_verified() {
+            local name="$1" sha="$2"
+            curl --fail --location --retry 3 --output "$name" \
+              "https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/$name"
+            echo "$sha  $name" | shasum -a 256 --check
+          }
+          download_verified OpenJDK.xcframework.zip ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f
+          download_verified java.base-device.zip af099f41010c4ceffd21231ae7d40b7c292190ab44c19616077545ae609f8c8d
+          download_verified java_bundle-device.zip 37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a
+          mkdir -p extracted/OpenJDK extracted/java.base extracted/java-bundle
+          unzip -q OpenJDK.xcframework.zip -d extracted/OpenJDK
+          unzip -q java.base-device.zip -d extracted/java.base
+          unzip -q java_bundle-device.zip -d extracted/java-bundle
+          echo "===== Device framework and runtime inventory ====="
+          find extracted -maxdepth 7 -type f | head -100
+          find extracted/OpenJDK -type f \( -name '*.a' -o -name '*.dylib' -o -name 'OpenJDK' \) -print | while read -r file; do
+            file "$file"
+            xcrun vtool -show-build "$file" || true
+          done
+          echo "IMPORTANT: These are upstream components, not a verified Minecraft Java 21 JVM."
+      - name: Upload verified upstream libraries for integration
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-openjdk-ios-device-verified-not-ipa
+          path: ${{ runner.temp }}/jdk-ios/extracted
+          retention-days: 7
+          if-no-files-found: error
