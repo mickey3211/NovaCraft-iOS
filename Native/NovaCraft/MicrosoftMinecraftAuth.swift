@@ -95,21 +95,32 @@ final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationCon
               let code = result?.queryItems?.first(where: { $0.name == "code" })?.value else {
             throw AuthError.missingCode
         }
-        let token = try await exchangeCode(code, verifier: verifier)
-        let xbox = try await xboxLive(token: token)
+        let token = try await atStage("Microsoft OAuth") { try await exchangeCode(code, verifier: verifier) }
+        let xbox = try await atStage("Xbox Live") { try await xboxLive(token: token) }
         guard let uhs = xbox.DisplayClaims?.xui?.first?.uhs else { throw AuthError.invalidResponse }
-        let xsts = try await xboxSecurity(xbox.Token)
+        let xsts = try await atStage("Xbox XSTS") { try await xboxSecurity(xbox.Token) }
         guard xsts.DisplayClaims?.xui?.first?.uhs == uhs else { throw AuthError.invalidResponse }
-        let minecraft = try await minecraftToken(uhs: uhs, xsts: xsts.Token)
+        let minecraft = try await atStage("Minecraft Services — token") { try await minecraftToken(uhs: uhs, xsts: xsts.Token) }
         let headers = ["Authorization": "Bearer \(minecraft.access_token)"]
-        let entitlements: Entitlements = try await requestJSON(
-            "https://api.minecraftservices.com/entitlements/mcstore", headers: headers)
+        let entitlements: Entitlements = try await atStage("Minecraft Services — uprawnienia") {
+            try await requestJSON("https://api.minecraftservices.com/entitlements/mcstore", headers: headers)
+        }
         guard entitlements.items.contains(where: { ["game_minecraft", "product_minecraft"].contains($0.name) }) else {
             throw AuthError.noJavaEntitlement
         }
-        let profile: MinecraftProfile = try await requestJSON(
-            "https://api.minecraftservices.com/minecraft/profile", headers: headers)
+        let profile: MinecraftProfile = try await atStage("Minecraft Services — profil") {
+            try await requestJSON("https://api.minecraftservices.com/minecraft/profile", headers: headers)
+        }
         return MinecraftAccount(username: profile.name, uuid: profile.id, minecraftAccessToken: minecraft.access_token)
+    }
+
+    /// Report the failing authentication provider without exposing tokens or private response data.
+    private func atStage<T>(_ stage: String, operation: () async throws -> T) async throws -> T {
+        do {
+            return try await operation()
+        } catch {
+            throw AuthError.apiError("\(stage): \(error.localizedDescription)")
+        }
     }
 
     private func exchangeCode(_ code: String, verifier: String) async throws -> String {
