@@ -378,6 +378,15 @@ struct LauncherView: View {
                 .buttonStyle(.bordered)
 
                 Button {
+                    state.prepareOfflineLaunch()
+                } label: {
+                    Label("Przygotuj start Java (profil offline)", systemImage: "terminal")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(state.activeOfflineProfile == nil)
+
+                Button {
                     Task { await state.launch() }
                 } label: {
                     Label("Uruchom Minecraft (test silnika)", systemImage: "play.circle")
