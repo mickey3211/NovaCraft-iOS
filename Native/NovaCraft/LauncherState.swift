@@ -11,6 +11,13 @@ final class LauncherState: ObservableObject {
     @Published var refreshing = false
     @Published var message = "Gotowy"
     @Published var account: MinecraftAccount?
+    @Published var offlineProfiles: [OfflineProfile] = [] {
+        didSet { if let data = try? JSONEncoder().encode(offlineProfiles) { UserDefaults.standard.set(data, forKey: "offline-profiles") } }
+    }
+    @Published var selectedOfflineID: UUID? {
+        didSet { UserDefaults.standard.set(selectedOfflineID?.uuidString, forKey: "offline-selected") }
+    }
+    @Published var serverProbeStatus = "Nie sprawdzono serwera"
     @Published var servers: [SavedServer] = [] {
         didSet { if let data = try? JSONEncoder().encode(servers) { UserDefaults.standard.set(data, forKey: "servers") } }
     }
@@ -23,10 +30,38 @@ final class LauncherState: ObservableObject {
         selectedVersion = UserDefaults.standard.string(forKey: "version") ?? ""
         if let data = UserDefaults.standard.data(forKey: "servers"),
            let stored = try? JSONDecoder().decode([SavedServer].self, from: data) { servers = stored }
+        if let data = UserDefaults.standard.data(forKey: "offline-profiles"),
+           let saved = try? JSONDecoder().decode([OfflineProfile].self, from: data) { offlineProfiles = saved }
+        if let id = UserDefaults.standard.string(forKey: "offline-selected") { selectedOfflineID = UUID(uuidString: id) }
         Task { await refresh() }
     }
 
     var selectedInstalled: Bool { installed.contains(selectedVersion) }
+
+    var activeOfflineProfile: OfflineProfile? { offlineProfiles.first { $0.id == selectedOfflineID } }
+
+    func addOfflineProfile(_ name: String) {
+        let clean = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard OfflineProfile.isValid(clean),
+              !offlineProfiles.contains(where: { $0.nickname.lowercased() == clean.lowercased() }) else {
+            message = "Nick offline: 3–16 znaków (litery A–Z, cyfry i _), bez duplikatów."
+            return
+        }
+        let profile = OfflineProfile(nickname: clean)
+        offlineProfiles.append(profile)
+        selectedOfflineID = profile.id
+        message = "Wybrano profil offline: \(clean). Nie daje dostępu do serwerów premium."
+    }
+
+    func removeOfflineProfiles(at offsets: IndexSet) {
+        offlineProfiles.remove(atOffsets: offsets)
+        if activeOfflineProfile == nil { selectedOfflineID = nil }
+    }
+
+    func probeServer(_ address: String) async {
+        serverProbeStatus = "Sprawdzanie połączenia TCP…"
+        serverProbeStatus = await NovaServerProbe.check(address: address)
+    }
 
     func refresh() async {
         guard !refreshing else { return }
