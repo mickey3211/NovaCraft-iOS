@@ -1,0 +1,22 @@
+name: NovaEngine core smoke tests
+
+on:
+  pull_request:
+    paths:
+      - 'Native/NovaCraft/NovaEngineCore.swift'
+      - 'tests/NovaEngineSmoke.swift'
+      - '.github/workflows/novaengine-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check NovaEngine metadata parser
+        run: |
+          swiftc Native/NovaCraft/NovaEngineCore.swift tests/NovaEngineSmoke.swift -o /tmp/novaengine-smoke
+          /tmp/novaengine-smoke
