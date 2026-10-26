@@ -12,6 +12,7 @@ private struct VersionManifest: Decodable {
 }
 
 private struct DownloadInfo: Decodable {
+    let id: String?
     let url: URL
     let sha1: String
     let size: Int64?
@@ -148,7 +149,10 @@ final class MinecraftInstaller {
         progress(0.50)
 
         let indexFolder = base.appendingPathComponent("assets/indexes", isDirectory: true)
-        let indexPath = indexFolder.appendingPathComponent(safeID(version.id) + ".json")
+        // Multiple Minecraft versions can share an asset index whose ID differs
+        // from the version ID (for example older releases).
+        let indexID = assetIndex.id ?? version.id
+        let indexPath = indexFolder.appendingPathComponent(safeID(indexID) + ".json")
         try await downloadVerified(url: assetIndex.url, sha1: assetIndex.sha1,
                                    size: assetIndex.size, destination: indexPath)
         let indexData = try Data(contentsOf: indexPath)
