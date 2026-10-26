@@ -4,6 +4,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <limits.h>
+
+// Persist only diagnostic stages, never account credentials or game arguments.
+// A native JVM crash prevents Swift error handling, so the next app start can
+// show the last completed stage to the user.
+static void nova_checkpoint(const char *stage) {
+    const char *home = getenv("HOME");
+    if (!home || !stage) return;
+    char path[PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/Documents/NovaCraft-jvm-last-stage.txt", home);
+    if (n <= 0 || (size_t)n >= sizeof(path)) return;
+    FILE *out = fopen(path, "w");
+    if (!out) return;
+    fputs(stage, out);
+    fputc('\\n', out);
+    fflush(out);
+    fsync(fileno(out));
+    fclose(out);
+}
 
 // JNI invocation ABI. Function table slots follow the published JNI specification.
 // Using a small C ABI bridge avoids importing desktop-only JDK headers into Xcode.
@@ -52,8 +72,10 @@ int nova_jni_invoke_main(const char *runtime_path,
         !game_args || game_arg_count < 0 || game_arg_count > 1024 ||
         jvm_option_count < 0 || jvm_option_count > 128 ||
         (jvm_option_count > 0 && !jvm_options)) return -11;
+    nova_checkpoint("Ładowanie biblioteki JVM (dlopen)");
     void *library = dlopen(runtime_path, RTLD_NOW | RTLD_LOCAL);
     if (!library) return -12;
+    nova_checkpoint("JVM załadowana; wyszukiwanie JNI_CreateJavaVM");
     CreateVM create = (CreateVM)dlsym(library, "JNI_CreateJavaVM");
     if (!create) { dlclose(library); return -13; }
 
@@ -83,6 +105,7 @@ int nova_jni_invoke_main(const char *runtime_path,
     JavaVMInitArgs init = {0x00010008, jvm_option_count + 3, options, 0};
     void *vm = NULL;
     void *env = NULL;
+    nova_checkpoint("Tworzenie maszyny Java (JNI_CreateJavaVM)");
     jint result = create(&vm, &env, &init);
     free(cp);
     free(np);
@@ -90,6 +113,7 @@ int nova_jni_invoke_main(const char *runtime_path,
         dlclose(library);
         return result != 0 ? result : -15;
     }
+    nova_checkpoint("Maszyna Java utworzona; wczytywanie klasy Minecraft");
     already_started = 1;
     retained_library = library;
 
@@ -112,6 +136,7 @@ int nova_jni_invoke_main(const char *runtime_path,
     for (size_t i = 0; i < length; i++) {
         if (class_name[i] == '.') class_name[i] = '/';
     }
+    nova_checkpoint("Wyszukiwanie klasy głównej Minecraft");
     jclass entry = findClass(env, class_name);
     free(class_name);
     if (!entry || hasException(env)) {
@@ -148,10 +173,12 @@ int nova_jni_invoke_main(const char *runtime_path,
     }
     // JNI jvalue union: a single jobject argument occupies pointer-sized storage.
     jobject parameter = args;
+    nova_checkpoint("Uruchamianie Minecraft main() i grafiki LWJGL");
     callMain(env, entry, method, &parameter);
     if (hasException(env)) {
         describeException(env);
         return -24;
     }
+    nova_checkpoint("Minecraft main() zakończyła działanie");
     return 0;
 }
