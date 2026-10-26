@@ -37,11 +37,11 @@ def main():
             if item.is_dir():
                 continue
             parts = filename.split("/")
-            if len(parts) < 5 or parts[0] != "Payload" or not parts[1].endswith(".app"):
+            if len(parts) < 4 or parts[0] != "Payload" or not parts[1].endswith(".app"):
                 continue
             relative = parts[2:]
             group = None
-            if relative[0] == "java_runtimes" and relative[1] in {
+            if len(relative) >= 3 and relative[0] == "java_runtimes" and relative[1] in {
                 "java-8-openjdk", "java-17-openjdk", "java-21-openjdk"
             }:
                 group = "java"
@@ -53,6 +53,8 @@ def main():
                 dest = staging / "native" / parts[-1]
             else:
                 continue
+            if item.file_size > 2 * 1024 * 1024 * 1024:
+                sys.exit("Unexpectedly large IPA member")
             if item.external_attr >> 16 & 0o170000 == 0o120000:
                 continue  # do not follow upstream symlinks
             if not all(part not in {"", ".", ".."} for part in relative):
