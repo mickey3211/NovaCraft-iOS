@@ -15,7 +15,7 @@ grep -Eq '^JAVA_VERSION="21([.]|")' "$FRAME/release" || {
 [[ -d "$FRAME/conf" ]] || {
   echo "Missing Java21 conf/ folder required by JVM bootstrap"; exit 1;
 }
-[[ -f "$FRAME/bin/java" ]] || echo "Warning: JRE archive has no bin/java; JLI launcher executable lookup may fail."
+[[ -s "$FRAME/bin/java" ]] || { echo "Missing Java launcher bin/java required by JLI_Launch"; exit 1; }
 [[ -s "$APP/Frameworks/liblwjgl.dylib" ]] || { echo "Missing LWJGL native"; exit 1; }
 [[ -s "$APP/LWJGL-iOS/lwjgl.jar" ]] || { echo "Missing LWJGL jar"; exit 1; }
 
