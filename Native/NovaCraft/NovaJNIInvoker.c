@@ -19,7 +19,7 @@ static void nova_checkpoint(const char *stage) {
     FILE *out = fopen(path, "w");
     if (!out) return;
     fputs(stage, out);
-    fputc('\\n', out);
+    fputc(10, out);
     fflush(out);
     fsync(fileno(out));
     fclose(out);
