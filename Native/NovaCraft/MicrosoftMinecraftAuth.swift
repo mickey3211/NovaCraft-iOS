@@ -54,7 +54,7 @@ private struct MinecraftProfile: Decodable {
 @MainActor
 final class MicrosoftMinecraftAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
     // Register your own public client in Microsoft Entra; never put a client secret in an iOS app.
-    private let clientID = "" // TODO: Microsoft Entra application (client) ID
+    private let clientID = "d48f4c8a-8925-445d-b6c9-0c1049373f78" // Public Microsoft Entra client ID
     private let redirect = "novacraft://auth"
     private var webSession: ASWebAuthenticationSession?
 
