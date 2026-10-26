@@ -92,10 +92,16 @@ final class LauncherState: ObservableObject {
         defer { busy = false }
         do {
             try await installer.install(version: version) { [weak self] progress in
-                Task { @MainActor in self?.downloadProgress = progress }
+                Task { @MainActor in
+                    guard let self else { return }
+                    // Avoid redrawing the entire launcher for every asset byte.
+                    if progress >= 1 || progress - self.downloadProgress >= 0.01 {
+                        self.downloadProgress = progress
+                    }
+                }
             }
             installed.insert(version.id)
-            message = "Pobrano klienta, biblioteki Java i zasoby wersji \(version.id). Do uruchomienia gry nadal brakuje JVM i grafiki LWJGL na iOS."
+            message = "Pobrano i zweryfikowano pliki Minecraft \(version.id). Możesz nacisnąć Graj."
         } catch { message = "Błąd instalacji: \(error.localizedDescription)" }
     }
 
@@ -148,8 +154,16 @@ final class LauncherState: ObservableObject {
     }
 
     func launch() async {
+        guard !busy, selectedInstalled else {
+            if !selectedInstalled { message = "Najpierw pobierz pliki wybranej wersji Minecraft." }
+            return
+        }
+        busy = true
+        message = "Uruchamianie Minecraft \(selectedVersion)…"
+        defer { busy = false }
         do {
             try await runtime.launch(version: selectedVersion, account: account, offlineNickname: activeOfflineProfile?.nickname)
+            message = "Proces Minecraft zakończył działanie."
         } catch { message = error.localizedDescription }
     }
 

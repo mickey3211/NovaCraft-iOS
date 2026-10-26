@@ -14,6 +14,11 @@ enum NovaGameRunner {
             let home = library.deletingLastPathComponent().path
             jvmOptions.append("-Djava.home=\(home)")
         }
+        // Keep JVM heap under iOS jetsam limits. The native JNI bridge
+        // respects an explicit -Xmx option instead of adding a duplicate.
+        let physicalGB = ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)
+        let heapMB = physicalGB >= 6 ? 1536 : (physicalGB >= 4 ? 1024 : 768)
+        jvmOptions.append("-Xmx\(heapMB)m")
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }

@@ -71,7 +71,14 @@ int nova_jni_invoke_main(const char *runtime_path,
     options[1].optionString = np;
     options[2].optionString = "-Xmx768m";
     for (int i = 0; i < jvm_option_count; i++) {
-        options[i + 3].optionString = (char *)jvm_options[i];
+        if (jvm_options[i] && strncmp(jvm_options[i], "-Xmx", 4) == 0) {
+            options[2].optionString = (char *)jvm_options[i];
+            break;
+        }
+    }
+    for (int i = 0; i < jvm_option_count; i++) {
+        options[i + 3].optionString = (jvm_options[i] && strncmp(jvm_options[i], "-Xmx", 4) == 0)
+            ? "-Dnovacraft.heap.selected=true" : (char *)jvm_options[i];
     }
     JavaVMInitArgs init = {0x00010008, jvm_option_count + 3, options, 0};
     void *vm = NULL;
