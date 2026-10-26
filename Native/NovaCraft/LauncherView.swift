@@ -353,10 +353,17 @@ struct LauncherView: View {
                 .font(.headline)
 
             if state.busy {
-                ProgressView(value: state.downloadProgress)
-                Text("Przetwarzanie plików: \(Int(state.downloadProgress * 100))%")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                if state.selectedInstalled {
+                    ProgressView()
+                    Text("Uruchamianie Minecraft Java…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ProgressView(value: state.downloadProgress)
+                    Text("Przetwarzanie plików: \(Int(state.downloadProgress * 100))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Button {
@@ -386,6 +393,13 @@ struct LauncherView: View {
                 Text("Pierwsze naciśnięcie pobiera Minecraft. Po pobraniu naciśnij Graj ponownie.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if !state.message.isEmpty {
+                Label(state.message, systemImage: state.lastCrashStage != nil ? "exclamationmark.triangle" : "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(state.lastCrashStage != nil ? .orange : .secondary)
+                    .textSelection(.enabled)
             }
 
             DisclosureGroup(isExpanded: $showAdvancedTools) {
@@ -434,13 +448,13 @@ struct LauncherView: View {
             }
 
             if let stage = state.lastCrashStage {
-                Label("Ostatnia awaria JVM: \(stage)", systemImage: "exclamationmark.triangle.fill")
+                Label("Ostatni etap JVM: \(stage)", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
                 Button {
                     UIPasteboard.general.string = "NovaCraft JNI: \(stage)"
                 } label: {
-                    Label("Kopiuj etap awarii", systemImage: "doc.on.doc")
+                    Label("Kopiuj etap JVM", systemImage: "doc.on.doc")
                 }
                 .font(.footnote)
             }
@@ -456,11 +470,23 @@ struct LauncherView: View {
                 }
                 .font(.footnote)
             }
-            if !state.message.isEmpty {
-                Text(state.message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
+            if let output = state.lastJavaOutput, !output.isEmpty {
+                DisclosureGroup("Dziennik uruchomienia Java") {
+                    Text(output)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button {
+                        // JVM logs can contain account information or paths.
+                        // The user explicitly chooses whether to export them.
+                        UIPasteboard.general.string = output
+                    } label: {
+                        Label("Kopiuj dziennik Java", systemImage: "doc.on.doc")
+                    }
+                    Text("Przed wysłaniem usuń z logu tokeny konta, adresy prywatnych serwerów i dane osobowe.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .font(.footnote)
             }
         }
         .padding(16)
