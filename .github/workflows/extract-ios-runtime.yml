@@ -1,0 +1,45 @@
+name: Extract iOS JVM and graphics dependencies (not launcher)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "HTTPS URL to a vetted upstream full iOS IPA (not slimmed)"
+        required: true
+        type: string
+      ipa_sha256:
+        description: "Expected SHA-256 of that exact IPA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify external IPA and extract only runtime components
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
+          IPA_SHA: ${{ inputs.ipa_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$IPA_URL" == https://* ]] || { echo "An HTTPS URL is required"; exit 1; }
+          [[ "$IPA_SHA" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "Expected SHA-256 is invalid"; exit 1; }
+          curl --fail --location --retry 3 --max-filesize 1200000000 --output "$RUNNER_TEMP/upstream.ipa" "$IPA_URL"
+          python3 scripts/extract-ios-runtime-components.py \
+            --ipa "$RUNNER_TEMP/upstream.ipa" \
+            --sha256 "$IPA_SHA" \
+            --output "$RUNNER_TEMP/components"
+          echo "External binaries are NOT auto-embedded into NovaCraft."
+          echo "Audit licenses, platform, symbols, signing and dependencies first."
+      - name: Upload Java and graphics dependency candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-ios-java-and-graphics-only-not-ipa
+          path: ${{ runner.temp }}/components
+          retention-days: 7
+          if-no-files-found: error
