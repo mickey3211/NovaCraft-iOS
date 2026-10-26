@@ -292,6 +292,27 @@ struct LauncherView: View {
                 .buttonStyle(.bordered)
                 .disabled(state.busy)
             }
+            if state.selectedInstalled {
+                Button {
+                    state.inspectEngine()
+                } label: {
+                    Label("Sprawdź zgodność NovaEngine", systemImage: "checkmark.shield")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    Task { await state.launch() }
+                } label: {
+                    Label("Uruchom Minecraft (test silnika)", systemImage: "play.circle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(state.busy)
+                Text("NovaEngine 0.1 analizuje wersję i biblioteki. Nie zawiera jeszcze JVM ani renderera, więc nie uruchamia gry.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(state.message)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
