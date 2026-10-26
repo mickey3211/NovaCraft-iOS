@@ -72,6 +72,33 @@ int nova_jni_invoke_main(const char *runtime_path,
         !game_args || game_arg_count < 0 || game_arg_count > 1024 ||
         jvm_option_count < 0 || jvm_option_count > 128 ||
         (jvm_option_count > 0 && !jvm_options)) return -11;
+    // OpenJDK on iOS needs a coherent JAVA_HOME and the native JLI bootstrap
+    // dependency available to the dynamic loader before JNI_CreateJavaVM.
+    // Keep this initialized from the signed, bundled runtime only.
+    char java_home[PATH_MAX] = {0};
+    const char *framework_marker = strstr(runtime_path, "/NovaJava21.framework/");
+    if (framework_marker) {
+        size_t len = (size_t)(framework_marker - runtime_path) +
+                     strlen("/NovaJava21.framework");
+        if (len >= sizeof(java_home)) return -25;
+        memcpy(java_home, runtime_path, len);
+        java_home[len] = '\\0';
+        setenv("JAVA_HOME", java_home, 1);
+        char jli_path[PATH_MAX];
+        int n = snprintf(jli_path, sizeof(jli_path), "%s/lib/libjli.dylib", java_home);
+        if (n <= 0 || (size_t)n >= sizeof(jli_path)) return -26;
+        nova_checkpoint("Ładowanie Java Launcher Interface (libjli)");
+        if (access(jli_path, R_OK) == 0) {
+            void *jli = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
+            if (!jli) {
+                nova_checkpoint("Błąd ładowania libjli.dylib");
+                return -27;
+            }
+        } else {
+            nova_checkpoint("Brak libjli.dylib w Java 21");
+            return -28;
+        }
+    }
     nova_checkpoint("Ładowanie biblioteki JVM (dlopen)");
     void *library = dlopen(runtime_path, RTLD_NOW | RTLD_LOCAL);
     if (!library) return -12;
