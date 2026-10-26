@@ -12,12 +12,12 @@ struct NovaEngineLaunchPlan {
     let hasAssetIndex: Bool
 
     var summary: String {
-        let java = requiredJavaMajor.map { "Java \\($0)" } ?? "Java: nieokreślona w manifeście"
+        let java = requiredJavaMajor.map { "Java \($0)" } ?? "Java: nieokreślona w manifeście"
         let files = missingLibraries.isEmpty
             ? "biblioteki dostępne"
-            : "brakuje \\(missingLibraries.count) bibliotek"
+            : "brakuje \(missingLibraries.count) bibliotek"
         let assets = hasAssetIndex ? "indeks zasobów dostępny" : "brak indeksu zasobów"
-        return "\\(versionID): \\(java), \\(files), \\(assets), argumenty: \\(argumentsFormat)"
+        return "\(versionID): \(java), \(files), \(assets), argumenty: \(argumentsFormat)"
     }
 }
 
