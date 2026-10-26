@@ -215,6 +215,13 @@ struct LauncherView: View {
                         Text(NovaHardwareDiagnostics.metalStatus())
                         Text(NovaHardwareDiagnostics.javaStatus())
                         Text(NovaJVMProbe.report())
+                        Button {
+                            Task { await state.testJVMStartup() }
+                        } label: {
+                            Label("Test uruchomienia JVM (JNI)", systemImage: "cpu")
+                        }
+                        Text("Test JNI działa tylko z dołączoną Java dla iOS. Wynik pojawi się w komunikacie na karcie Start.")
+                            .font(.footnote).foregroundStyle(.secondary)
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
