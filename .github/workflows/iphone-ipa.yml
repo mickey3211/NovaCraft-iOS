@@ -36,6 +36,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Validate optional Java runtime
+        run: bash scripts/package-java-runtime.sh "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
+
       - name: Package unsigned IPA
         run: |
           set -euo pipefail
