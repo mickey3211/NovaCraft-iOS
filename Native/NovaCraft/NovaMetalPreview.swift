@@ -28,7 +28,7 @@ struct NovaMetalPreview: UIViewRepresentable {
     }
 }
 
-private final class NovaTriangleRenderer: NSObject, MTKViewDelegate {
+final class NovaTriangleRenderer: NSObject, MTKViewDelegate {
     private let queue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
 
