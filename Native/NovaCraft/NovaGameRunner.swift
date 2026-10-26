@@ -40,11 +40,21 @@ enum NovaGameRunner {
                     args.mainClass.withCString { mainClass in
                         classpath.withCString { classpath in
                             nativePath.withCString { nativeDir in
-                                nova_jni_invoke_main(runtimePath, mainClass, classpath,
-                                                     nativeDir, vmBuffer.baseAddress,
-                                                     Int32(vmStrings.count),
-                                                     gameBuffer.baseAddress,
-                                                     Int32(gameStrings.count))
+                                // OpenJDK Mobile iOS launchers use JLI_Launch instead of
+                                // calling JNI_CreateJavaVM directly. Prefer that
+                                // proven initialization route for our bundled Java 21.
+                                if javaMajor == 21 {
+                                    return nova_jli_launch_main(runtimePath, mainClass, classpath,
+                                                                nativeDir, vmBuffer.baseAddress,
+                                                                Int32(vmStrings.count),
+                                                                gameBuffer.baseAddress,
+                                                                Int32(gameStrings.count))
+                                }
+                                return nova_jni_invoke_main(runtimePath, mainClass, classpath,
+                                                            nativeDir, vmBuffer.baseAddress,
+                                                            Int32(vmStrings.count),
+                                                            gameBuffer.baseAddress,
+                                                            Int32(gameStrings.count))
                             }
                         }
                     }
