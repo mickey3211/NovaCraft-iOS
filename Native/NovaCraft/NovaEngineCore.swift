@@ -170,7 +170,7 @@ enum NovaEngineCore {
     }
 
     private static func isSafeID(_ id: String) -> Bool {
-        !id.isEmpty && id.unicodeScalars.allSatisfy {
+        !id.isEmpty && id != "." && id != ".." && id.unicodeScalars.allSatisfy {
             CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-").contains($0)
         }
     }
