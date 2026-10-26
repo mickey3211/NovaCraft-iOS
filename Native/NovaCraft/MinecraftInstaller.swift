@@ -160,17 +160,45 @@ final class MinecraftInstaller {
         let objects = Array(Set(index.objects.values.map { $0.hash })).sorted()
         let assetInfo = Dictionary(index.objects.values.map { ($0.hash, $0.size) }, uniquingKeysWith: { first, _ in first })
 
-        for (position, hash) in objects.enumerated() {
-            try Task.checkCancellation()
-            guard isSHA1(hash), let size = assetInfo[hash] else { throw InstallError.invalidManifest }
-            let prefix = String(hash.prefix(2))
-            let url = URL(string: "https://resources.download.minecraft.net/\(prefix)/\(hash)")!
-            let destination = base.appendingPathComponent("assets/objects", isDirectory: true)
-                .appendingPathComponent(prefix, isDirectory: true)
-                .appendingPathComponent(hash)
-            try await downloadVerified(url: url, sha1: hash, size: size, destination: destination)
-            progress(0.50 + 0.49 * Double(position + 1) / Double(max(objects.count, 1)))
+        // Keep network throughput high without creating hundreds of in-flight
+        // connections. Asset downloads are independent and verified by SHA-1.
+        // Progress is updated on the coordinating task, never by worker tasks.
+        let maxConcurrentAssets = 4
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var next = 0
+            var completed = 0
+
+            func enqueue(_ hash: String) {
+                group.addTask {
+                    try Task.checkCancellation()
+                    guard self.isSHA1(hash), let size = assetInfo[hash] else {
+                        throw InstallError.invalidManifest
+                    }
+                    let prefix = String(hash.prefix(2))
+                    let url = URL(string: "https://resources.download.minecraft.net/\(prefix)/\(hash)")!
+                    let destination = self.base.appendingPathComponent("assets/objects", isDirectory: true)
+                        .appendingPathComponent(prefix, isDirectory: true)
+                        .appendingPathComponent(hash)
+                    try await self.downloadVerified(url: url, sha1: hash, size: size, destination: destination)
+                }
+            }
+
+            while next < min(maxConcurrentAssets, objects.count) {
+                enqueue(objects[next])
+                next += 1
+            }
+            while let _ = try await group.next() {
+                completed += 1
+                if completed == objects.count || completed % 12 == 0 {
+                    progress(0.50 + 0.49 * Double(completed) / Double(max(objects.count, 1)))
+                }
+                if next < objects.count {
+                    enqueue(objects[next])
+                    next += 1
+                }
+            }
         }
+        progress(0.99)
 
         try json.write(to: folder.appendingPathComponent("version.json"), options: .atomic)
         try Data("ok".utf8).write(to: complete, options: .atomic)
