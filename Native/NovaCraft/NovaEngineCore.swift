@@ -42,10 +42,14 @@ enum NovaEnginePreflightError: LocalizedError {
 private struct NovaVersionMetadata: Decodable {
     let mainClass: String?
     let javaVersion: JavaVersion?
+    let assetIndex: AssetIndexMetadata?
     let arguments: Arguments?
     let minecraftArguments: String?
     let libraries: [Library]?
 
+    struct AssetIndexMetadata: Decodable {
+        let id: String
+    }
     struct JavaVersion: Decodable {
         let majorVersion: Int
     }
@@ -147,7 +151,7 @@ enum NovaEngineCore {
         }
         classpath.append(folder.appendingPathComponent("client.jar"))
         let assets = root.appendingPathComponent("assets/indexes", isDirectory: true)
-            .appendingPathComponent(versionID + ".json")
+            .appendingPathComponent((metadata.assetIndex?.id ?? versionID) + ".json")
         return NovaEngineLaunchPlan(
             versionID: versionID,
             mainClass: mainClass,

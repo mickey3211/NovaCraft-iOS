@@ -7,11 +7,12 @@ struct NovaLaunchArguments {
     let mainClass: String
     let classpath: String
     let gameArguments: [String]
+    let jvmArguments: [String]
     let javaMajor: Int?
     let assetsIndexID: String
 
     var safeSummary: String {
-        "Klasa: \(mainClass) • Java \(javaMajor.map(String.init) ?? "?") • JAR: \(classpath.split(separator: ":").count) • argumenty: \(gameArguments.count) • zasoby: \(assetsIndexID)"
+        "Klasa: \(mainClass) • Java \(javaMajor.map(String.init) ?? "?") • JAR: \(classpath.split(separator: ":").count) • argumenty gry: \(gameArguments.count), JVM: \(jvmArguments.count) • zasoby: \(assetsIndexID)"
     }
 }
 
@@ -60,7 +61,13 @@ enum NovaLaunchArgumentBuilder {
             "version_type": "release",
             "user_properties": "{}",
             "resolution_width": "1280",
-            "resolution_height": "720"
+            "resolution_height": "720",
+            "classpath": plan.classpath.map(\.path).joined(separator: ":"),
+            "classpath_separator": ":",
+            "library_directory": root.appendingPathComponent("libraries", isDirectory: true).path,
+            "natives_directory": root.appendingPathComponent("natives", isDirectory: true).path,
+            "launcher_name": "NovaCraft",
+            "launcher_version": "1.0"
         ]
         let args: [String]
         if let modern = (json["arguments"] as? [String: Any])?["game"] as? [Any] {
@@ -82,14 +89,36 @@ enum NovaLaunchArgumentBuilder {
                 text.replacingOccurrences(of: "${\(pair.key)}", with: pair.value)
             }
         }
+        // Resolve JVM options independently from game arguments. The official
+        // manifest has different JVM options for each Minecraft generation.
+        let jvmEntries = ((json["arguments"] as? [String: Any])?["jvm"] as? [Any]) ?? []
+        let jvmRaw: [String] = jvmEntries.flatMap { entry -> [String] in
+            if let literal = entry as? String { return [literal] }
+            guard let object = entry as? [String: Any],
+                  let rules = object["rules"] as? [[String: Any]],
+                  ruleAllows(rules) else { return [] }
+            if let value = object["value"] as? String { return [value] }
+            return object["value"] as? [String] ?? []
+        }
+        let jvmExpanded = jvmRaw.map { argument in
+            values.reduce(argument) { text, pair in
+                text.replacingOccurrences(of: "${\(pair.key)}", with: pair.value)
+            }
+        }
+        // Older versions do not define JVM arguments in version.json.
+        let jvmArguments = jvmExpanded.isEmpty
+            ? ["-cp", plan.classpath.map(\.path).joined(separator: ":")]
+            : jvmExpanded
         // Fail closed rather than pass unresolved placeholders to a future JVM.
-        guard !expanded.contains(where: { $0.contains("${") }) else {
+        guard !expanded.contains(where: { $0.contains("${") }),
+              !jvmArguments.contains(where: { $0.contains("${") }) else {
             throw NovaLaunchArgumentsError.invalidMetadata
         }
         return NovaLaunchArguments(
             mainClass: plan.mainClass,
             classpath: plan.classpath.map(\.path).joined(separator: ":"),
             gameArguments: expanded,
+            jvmArguments: jvmArguments,
             javaMajor: plan.requiredJavaMajor,
             assetsIndexID: assetID
         )
