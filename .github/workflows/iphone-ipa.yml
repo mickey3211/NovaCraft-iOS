@@ -20,25 +20,6 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Fetch verified real OpenJDK iOS framework and Java modules
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/novajdk" Vendor JavaRuntime/lib
-          cd "$RUNNER_TEMP/novajdk"
-          fetch() {
-            local name="$1" sha="$2"
-            curl --fail --location --retry 3 -o "$name" "https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/$name"
-            echo "$sha  $name" | shasum -a 256 -c -
-          }
-          fetch OpenJDK.xcframework.zip ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f
-          fetch java_bundle-device.zip 37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a
-          unzip -q OpenJDK.xcframework.zip
-          unzip -q java_bundle-device.zip
-          test -s java_bundle-device/lib/modules
-          ditto OpenJDK.xcframework "$GITHUB_WORKSPACE/Vendor/OpenJDK.xcframework"
-          ditto java_bundle-device/lib/modules "$GITHUB_WORKSPACE/JavaRuntime/lib/modules"
-          echo "Linked static iOS OpenJDK and bundled java modules; runtime major not verified as Java 21."
-
       - name: Prepare verified native Java 21 iOS runtime
         run: bash scripts/build-vendor-ios-jre21.sh
 

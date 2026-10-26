@@ -209,3 +209,93 @@ int nova_jni_invoke_main(const char *runtime_path,
     nova_checkpoint("Minecraft main() zakończyła działanie");
     return 0;
 }
+
+
+// OpenJDK iOS bootstrap through libjli rather than direct JNI_CreateJavaVM.
+// This is an independent adapter to OpenJDK's public Java Launcher Interface,
+// not a copy of another launcher's code. Both startup paths must be tested
+// on a physical device: these libraries require compatible code signing.
+typedef jint (*NovaJLILaunch)(int, const char **, int, const char **,
+                              int, const char **, const char *, const char *,
+                              const char *, const char *, jboolean,
+                              jboolean, jboolean, jint);
+
+int nova_jli_launch_main(const char *runtime_path,
+                         const char *main_class,
+                         const char *classpath,
+                         const char *native_path,
+                         const char * const *jvm_options,
+                         int jvm_option_count,
+                         const char * const *game_args,
+                         int game_arg_count) {
+    if (already_started) return -10;
+    if (!runtime_path || !main_class || !classpath || !native_path ||
+        game_arg_count < 0 || game_arg_count > 1024 ||
+        jvm_option_count < 0 || jvm_option_count > 128 ||
+        (game_arg_count > 0 && !game_args) ||
+        (jvm_option_count > 0 && !jvm_options)) return -11;
+
+    // Use only the bundled and reviewed JRE21. No downloaded executable code.
+    const char *marker = strstr(runtime_path, "/NovaJava21.framework/");
+    if (!marker) return -40;
+    size_t len = (size_t)(marker - runtime_path) + strlen("/NovaJava21.framework");
+    char home[PATH_MAX], jli_path[PATH_MAX], java_exe[PATH_MAX];
+    if (len >= sizeof(home)) return -41;
+    memcpy(home, runtime_path, len);
+    home[len] = 0;
+    if (snprintf(jli_path, sizeof(jli_path), "%s/lib/libjli.dylib", home) >= sizeof(jli_path) ||
+        snprintf(java_exe, sizeof(java_exe), "%s/bin/java", home) >= sizeof(java_exe)) return -42;
+    if (access(jli_path, R_OK) != 0) {
+        nova_checkpoint("JLI: brak podpisanej biblioteki libjli.dylib");
+        return -43;
+    }
+
+    setenv("JAVA_HOME", home, 1);
+    setenv("INTERNAL_JLI_PATH", jli_path, 1);
+    setenv("HACK_IGNORE_START_ON_FIRST_THREAD", "1", 1);
+    nova_checkpoint("JLI: ładowanie libjli.dylib");
+    void *handle = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
+    if (!handle) {
+        nova_checkpoint("JLI: iOS odmówił załadowania libjli.dylib");
+        return -44;
+    }
+    NovaJLILaunch launch = (NovaJLILaunch)dlsym(handle, "JLI_Launch");
+    if (!launch) {
+        nova_checkpoint("JLI: brak symbolu JLI_Launch w bibliotece");
+        return -45;
+    }
+
+    size_t argc = (size_t)jvm_option_count + (size_t)game_arg_count + 12;
+    const char **argv = calloc(argc, sizeof(*argv));
+    if (!argv) return -46;
+    char *native_property = malloc(strlen(native_path) + 23);
+    if (!native_property) { free(argv); return -47; }
+    sprintf(native_property, "-Djava.library.path=%s", native_path);
+
+    size_t i = 0;
+    argv[i++] = java_exe; // argv[0] indicates the Java home to JLI.
+    argv[i++] = "-XX:+UnlockExperimentalVMOptions";
+    argv[i++] = "-XX:+DisablePrimordialThreadGuardPages";
+    argv[i++] = native_property;
+    for (int k = 0; k < jvm_option_count; k++) {
+        if (jvm_options[k]) argv[i++] = jvm_options[k];
+    }
+    argv[i++] = "-cp";
+    argv[i++] = classpath;
+    argv[i++] = main_class;
+    for (int k = 0; k < game_arg_count; k++) {
+        argv[i++] = game_args[k] ? game_args[k] : "";
+    }
+
+    already_started = 1;
+    retained_library = handle;
+    nova_checkpoint("JLI: uruchamianie środowiska Java 21 i klasy Minecraft");
+    jint result = launch((int)i, argv, 0, NULL, 0, NULL,
+                         "21", "21", "java", "openjdk",
+                         0, 1, 0, 1);
+    nova_checkpoint(result == 0 ? "JLI: Minecraft zakończył działanie" :
+                                  "JLI: proces Java zakończył się błędem");
+    free(native_property);
+    free(argv);
+    return result;
+}
