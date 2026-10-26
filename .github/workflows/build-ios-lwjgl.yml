@@ -53,6 +53,20 @@ jobs:
           test -n "$library"
           mkdir -p bin/libs/native/macos/arm64/org/lwjgl
           cp "$library" bin/libs/native/macos/arm64/org/lwjgl/libffi.a
+          # Upstream shaderc nightly URL now 404; vanilla OpenGL Minecraft
+          # does not need Vulkan shaderc. Disable only shaderc, not LWJGL core.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("ci_build_ios.bash")
+          s = p.read_text()
+          s = s.replace('wget -nc "https://nightly.link/PojavLauncherTeam/shaderc/workflows/ios/main/libshaderc.zip"', ': # upstream shaderc nightly unavailable')
+          s = s.replace('unzip -o libshaderc.zip -d $LWJGL_NATIVE/shaderc', ': # no shaderc')
+          s = s.replace('rm $LWJGL_NATIVE/shaderc/libshaderc_shared.1.dylib', ': # no shaderc')
+          s = s.replace('mv $LWJGL_NATIVE/shaderc/libshaderc_shared.dylib $LWJGL_NATIVE/shaderc/libshaderc.dylib', ': # no shaderc')
+          s = s.replace('cp $LWJGL_NATIVE/shaderc/libshaderc.dylib bin/out/', ': # no shaderc')
+          s = s.replace('  -Dbinding.assimp=false \\', '  -Dbinding.assimp=false \\\n  -Dbinding.shaderc=false \\')
+          p.write_text(s)
+          PY
           SKIP_LIBFFI=1 bash ci_build_ios.bash
           test -d bin/RELEASE
           test -d bin/out
