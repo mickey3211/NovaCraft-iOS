@@ -15,7 +15,11 @@ done
 for dylib in "${NATIVES[@]}"; do
   lipo -archs "$dylib" | grep -qw arm64 || { echo "Not arm64: $dylib"; exit 1; }
   TMP=$(mktemp)
-  lipo "$dylib" -thin arm64 -output "$TMP"
+  if [[ "$(lipo -archs "$dylib" | wc -w | tr -d ' ')" -gt 1 ]]; then
+    lipo "$dylib" -thin arm64 -output "$TMP"
+  else
+    cp "$dylib" "$TMP"
+  fi
   if ! xcrun vtool -show-build "$TMP" | grep -Eq 'platform (IOS|2)([[:space:]]|$)'; then
     rm -f "$TMP"; echo "Not iOS device: $dylib"; exit 1
   fi
