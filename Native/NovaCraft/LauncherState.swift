@@ -17,7 +17,7 @@ final class LauncherState: ObservableObject {
 
     let installer = MinecraftInstaller()
     let authentication = MicrosoftMinecraftAuth()
-    let runtime: any MinecraftRuntime = UnavailableMinecraftRuntime()
+    let runtime = NovaEngineRuntime()
 
     init() {
         selectedVersion = UserDefaults.standard.string(forKey: "version") ?? ""
@@ -80,6 +80,15 @@ final class LauncherState: ObservableObject {
             account = try await authentication.signIn()
             message = "Zalogowano: \(account?.username ?? "")"
         } catch { message = "Logowanie nieudane: \(error.localizedDescription)" }
+    }
+
+    func inspectEngine() {
+        do {
+            let plan = try runtime.inspect(version: selectedVersion)
+            message = "NovaEngine 0.1 — " + plan.summary
+        } catch {
+            message = "NovaEngine: " + error.localizedDescription
+        }
     }
 
     func launch() async {
