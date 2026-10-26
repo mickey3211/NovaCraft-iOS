@@ -13,13 +13,7 @@ targets:
     platform: iOS
     sources:
       - path: Native/NovaCraft
-      - path: JavaRuntime/lib
-        type: folder
-        buildPhase: resources
     dependencies:
-      - framework: Vendor/OpenJDK.xcframework
-        embed: false
-        link: true
       - sdk: libz.tbd
     settings:
       base:
