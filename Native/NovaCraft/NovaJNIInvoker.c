@@ -82,7 +82,7 @@ int nova_jni_invoke_main(const char *runtime_path,
                      strlen("/NovaJava21.framework");
         if (len >= sizeof(java_home)) return -25;
         memcpy(java_home, runtime_path, len);
-        java_home[len] = '\\0';
+        java_home[len] = 0;
         setenv("JAVA_HOME", java_home, 1);
         char jli_path[PATH_MAX];
         int n = snprintf(jli_path, sizeof(jli_path), "%s/lib/libjli.dylib", java_home);
