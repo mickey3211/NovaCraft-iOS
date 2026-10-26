@@ -126,6 +126,19 @@ final class LauncherState: ObservableObject {
         }
     }
 
+    func prepareOfflineLaunch() {
+        guard let profile = activeOfflineProfile else {
+            message = "Wybierz profil offline w zakładce Konto."
+            return
+        }
+        do {
+            let arguments = try runtime.prepareOfflineArguments(version: selectedVersion, nickname: profile.nickname)
+            message = "NovaEngine 0.4 — " + arguments.safeSummary + ". Argumenty przygotowane; JVM i renderer nadal niedostępne."
+        } catch {
+            message = "Przygotowanie startu: " + error.localizedDescription
+        }
+    }
+
     func launch() async {
         do {
             try await runtime.launch(version: selectedVersion, account: account)
