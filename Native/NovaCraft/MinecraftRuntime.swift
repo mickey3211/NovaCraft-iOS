@@ -22,7 +22,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
         try NovaLaunchArgumentBuilder.build(version: version, root: root, nickname: nickname)
     }
 
-    func launch(version: String, account: MinecraftAccount?) async throws {
+    func launch(version: String, account: MinecraftAccount?, offlineNickname: String?) async throws {
         let plan = try inspect(version: version)
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
             throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
@@ -39,7 +39,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
               FileManager.default.fileExists(atPath: frameworks
                   .appendingPathComponent("NovaLWJGLBridge.framework/NovaLWJGLBridge").path) else {
             throw NovaEngineLaunchError.missingJavaAndRenderer(
-                "Java \\(major) jest dostępna, ale brak natywnego mostu LWJGL/Metal. Nie można bezpiecznie uruchomić klienta Minecraft."
+                "Java \(major) jest dostępna, ale brak natywnego mostu LWJGL/Metal. Nie można bezpiecznie uruchomić klienta Minecraft."
             )
         }
         let args = try prepareOfflineArguments(version: version, nickname: nickname)
@@ -58,7 +58,7 @@ enum NovaEngineLaunchError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .jvmFailure(let code):
-            return "Nie udało się uruchomić klasy głównej Minecraft przez JNI (kod: \\(code))."
+            return "Nie udało się uruchomić klasy głównej Minecraft przez JNI (kod: \(code))."
         case .incompleteInstallation(let report):
             return "NovaEngine: instalacja niekompletna. \(report)"
         case .missingJavaAndRenderer(let report):
