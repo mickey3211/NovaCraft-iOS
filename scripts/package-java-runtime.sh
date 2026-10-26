@@ -33,11 +33,12 @@ if ! xcrun vtool -show-build "$TMPDIR_JVM/runtime" | grep -Eq 'platform (IOS|2)(
   exit 1
 fi
 
-if ! xcrun nm -gU "$TMPDIR_JVM/runtime" | grep -q '_JNI_CreateJavaVM'; then
+SYMBOLS=$(xcrun nm -gU "$TMPDIR_JVM/runtime")
+if ! grep -q '_JNI_CreateJavaVM' <<< "$SYMBOLS"; then
   echo "JVM framework does not export JNI_CreateJavaVM"
   exit 1
 fi
-if ! xcrun nm -gU "$TMPDIR_JVM/runtime" | grep -q '_JNI_GetCreatedJavaVMs'; then
+if ! grep -q '_JNI_GetCreatedJavaVMs' <<< "$SYMBOLS"; then
   echo "JVM framework does not export JNI_GetCreatedJavaVMs"
   exit 1
 fi
