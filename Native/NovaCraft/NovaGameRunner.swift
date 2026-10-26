@@ -32,6 +32,16 @@ enum NovaGameRunner {
         // This does not provide a renderer; it only configures LWJGL's thread checks.
         jvmOptions.append("-Dorg.lwjgl.glfw.checkThread0=false")
         jvmOptions.append("-Dorg.lwjgl.system.allocator=system")
+        // Minecraft must write settings, logs and world saves outside the
+        // read-only application bundle. Match the game directory used by
+        // official --gameDir arguments in NovaLaunchArgumentBuilder.
+        let gameRoot = FileManager.default.urls(for: .applicationSupportDirectory,
+                                                 in: .userDomainMask)[0]
+            .appendingPathComponent("NovaCraft", isDirectory: true)
+        let gameDirectory = gameRoot.appendingPathComponent("game", isDirectory: true)
+        jvmOptions.removeAll { $0.hasPrefix("-Duser.dir=") || $0.hasPrefix("-Duser.home=") }
+        jvmOptions.append("-Duser.dir=\(gameDirectory.path)")
+        jvmOptions.append("-Duser.home=\(gameRoot.path)")
         // If HotSpot encounters a native fatal error, preserve hs_err_pid
         // in Documents so it can be exported after reopening NovaCraft.
         if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
