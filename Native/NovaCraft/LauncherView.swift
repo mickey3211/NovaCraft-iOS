@@ -5,6 +5,9 @@ struct LauncherView: View {
     @EnvironmentObject private var state: LauncherState
     @AppStorage("show-snapshots") private var showSnapshots = false
     @State private var selectedTab = 0
+    @AppStorage("version-filter") private var versionFilter = "all"
+    @AppStorage("download-wifi-reminder") private var wifiReminder = true
+    @AppStorage("prefer-dark-interface") private var preferDarkInterface = true
     @State private var serverName = ""
     @State private var serverAddress = ""
     @State private var versionSearch = ""
@@ -13,6 +16,7 @@ struct LauncherView: View {
     private var filteredVersions: [MinecraftVersion] {
         state.versions.filter { version in
             (showSnapshots || version.type == "release") &&
+            (versionFilter != "installed" || state.installed.contains(version.id)) &&
             (versionSearch.isEmpty || version.id.localizedCaseInsensitiveContains(versionSearch))
         }
     }
@@ -26,6 +30,7 @@ struct LauncherView: View {
                         overview
                         versionPanel
                         installPanel
+                        hardwarePanel
                         noticePanel
                     }
                     .padding(16)
@@ -156,8 +161,35 @@ struct LauncherView: View {
             }
             .tabItem { Label("Sterowanie", systemImage: "gamecontroller.fill") }
             .tag(3)
+
+            NavigationStack {
+                Form {
+                    Section("Wygląd") {
+                        Toggle("Ciemny wygląd", isOn: $preferDarkInterface)
+                    }
+                    Section("Wersje i pobieranie") {
+                        Picker("Widoczne wersje", selection: $versionFilter) {
+                            Text("Wszystkie").tag("all")
+                            Text("Tylko pobrane").tag("installed")
+                        }
+                        Toggle("Przypomnienie o Wi-Fi", isOn: $wifiReminder)
+                        Text("Pliki Minecraft mogą zajmować dużo miejsca. Pobieranie wykorzystuje aktywne połączenie internetowe.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                    Section("NovaEngine") {
+                        Text(NovaHardwareDiagnostics.metalStatus())
+                        Text(NovaHardwareDiagnostics.javaStatus())
+                        Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("Ustawienia")
+            }
+            .tabItem { Label("Ustawienia", systemImage: "gearshape.fill") }
+            .tag(4)
         }
         .tint(.cyan)
+        .preferredColorScheme(preferDarkInterface ? .dark : .light)
     }
 
     private var hero: some View {
@@ -229,6 +261,11 @@ struct LauncherView: View {
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
             Toggle("Pokaż snapshoty", isOn: $showSnapshots)
+            Picker("Filtr", selection: $versionFilter) {
+                Text("Wszystkie").tag("all")
+                Text("Pobrane").tag("installed")
+            }
+            .pickerStyle(.segmented)
                 .font(.subheadline)
             if filteredVersions.isEmpty {
                 Text(state.refreshing ? "Ładowanie wersji…" : "Brak pasujących wersji. Odśwież listę lub zmień filtr.")
@@ -271,6 +308,10 @@ struct LauncherView: View {
                 Text("Pobieranie: \(Int(state.downloadProgress * 100))%")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+            }
+            if wifiReminder && !state.selectedInstalled {
+                Label("Zalecane Wi-Fi — pliki mogą być duże.", systemImage: "wifi")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Button {
                 Task { await state.installSelected() }
@@ -321,6 +362,21 @@ struct LauncherView: View {
         .padding(16)
         .background(Color(uiColor: .secondarySystemGroupedBackground),
                     in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var hardwarePanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("NovaEngine • diagnostyka sprzętu", systemImage: "cpu.fill")
+                .font(.headline)
+            Text(NovaHardwareDiagnostics.metalStatus())
+            Text(NovaHardwareDiagnostics.javaStatus())
+            Text("Obsługa OpenGL/LWJGL i wykonywanie Minecraft Java nadal wymagają implementacji.")
+                .foregroundStyle(.secondary)
+        }
+        .font(.footnote)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
     }
 
     private var noticePanel: some View {
