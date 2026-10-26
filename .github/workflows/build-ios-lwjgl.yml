@@ -40,9 +40,20 @@ jobs:
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/lwjgl3"
-          # Upstream build downloads libffi and shaderc dependencies itself.
-          # Do not distribute these binaries without auditing their provenance.
-          bash ci_build_ios.bash
+          # libffi 3.4.6 source's assembly triggers an Xcode 16.4 invalid CFI
+          # error. Prefer the separate iOS-arm64 libffi build, SHA256 pinned.
+          curl --fail --location --retry 3 \
+            -o "$RUNNER_TEMP/libffi-ios.zip" \
+            "https://github.com/openjdk-mobile/ios-tools/releases/download/libffi-build/libffi-ios.zip"
+          echo "4f39fd1d53fbd69d1bdbd915413077d130daa3f6792d1b3a03a690a9cbd4dea3  $RUNNER_TEMP/libffi-ios.zip" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/libffi-content"
+          unzip -q "$RUNNER_TEMP/libffi-ios.zip" -d "$RUNNER_TEMP/libffi-content"
+          find "$RUNNER_TEMP/libffi-content" -type f -print
+          library="$(find "$RUNNER_TEMP/libffi-content" -type f -name 'libffi.a' -print -quit)"
+          test -n "$library"
+          mkdir -p bin/libs/native/macos/arm64/org/lwjgl
+          cp "$library" bin/libs/native/macos/arm64/org/lwjgl/libffi.a
+          SKIP_LIBFFI=1 bash ci_build_ios.bash
           test -d bin/RELEASE
           test -d bin/out
           mkdir -p "$RUNNER_TEMP/lwjgl-artifact/jars" "$RUNNER_TEMP/lwjgl-artifact/native"
