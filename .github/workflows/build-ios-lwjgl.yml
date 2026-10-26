@@ -121,6 +121,8 @@ jobs:
       - name: Compile NovaCraft with iOS JVM and LWJGL
         run: |
           set -euo pipefail
+          python3 -m pip install --user pillow
+          python3 scripts/generate-app-icon.py
           xcodegen generate
           xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
