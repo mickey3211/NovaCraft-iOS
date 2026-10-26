@@ -6,8 +6,10 @@ enum NovaGameRunner {
     static func run(_ args: NovaLaunchArguments, javaMajor: Int) -> Int32 {
         guard let library = NovaJavaRuntimeRegistry.frameworkURL(major: javaMajor) else { return -30 }
         let nativePath = Bundle.main.privateFrameworksURL?.path ?? ""
-        let jvmOptions = normalizeJVMOptions(args.jvmArguments)
         let classpath = iosLWJGLClasspath(fallback: args.classpath)
+        // Resolve JVM properties against the classpath that actually includes
+        // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
+        let jvmOptions = normalizeJVMOptions(args.jvmArguments)
 
         let gamePointers = args.gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
@@ -46,8 +48,8 @@ enum NovaGameRunner {
         if libraryJars.isEmpty { return fallback }
         let original = fallback.split(separator: ":").map(String.init).filter { entry in
             let filename = URL(fileURLWithPath: entry).lastPathComponent
-            return !filename.hasPrefix("lwjgl-") && !filename.hasPrefix("lwjgl3-")
-                && !filename.hasPrefix("lwjglx-")
+            return filename != "lwjgl.jar" && !filename.hasPrefix("lwjgl-")
+                && !filename.hasPrefix("lwjgl3-") && !filename.hasPrefix("lwjglx-")
         }
         return (libraryJars.map(\.path) + original).joined(separator: ":")
     }
