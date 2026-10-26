@@ -13,11 +13,15 @@ archive="$(find "$TEMP/download" -maxdepth 2 -name 'jre21-*-release.tar.xz' -typ
 mkdir "$TEMP/jre"
 tar -xJf "$archive" -C "$TEMP/jre" --no-same-owner
 test -s "$TEMP/jre/lib/server/libjvm.dylib"
+test -s "$TEMP/jre/lib/libjli.dylib"
 test -s "$TEMP/jre/lib/modules"
 grep -Eq '^JAVA_VERSION="21([.]|")' "$TEMP/jre/release" || { echo "Upstream runtime isn't Java 21"; exit 1; }
 mkdir -p Vendor/NovaJava21.framework
 ditto "$TEMP/jre/lib/server/libjvm.dylib" Vendor/NovaJava21.framework/NovaJava21
 ditto "$TEMP/jre/lib" Vendor/NovaJava21.framework/lib
+# The iOS signer must recursively sign native dylibs, not only the outer framework.
+find Vendor/NovaJava21.framework/lib -type f -name "*.dylib" -print > "$TEMP/native-dylibs.txt"
+echo "Native JRE libraries requiring code signing: $(wc -l < "$TEMP/native-dylibs.txt")"
 # Don't keep an extra copy of the JVM executable inside the Java home.
 # Preserve the original Java home directory layout, including lib/server/libjvm.dylib.
 # HotSpot and supporting native libraries may resolve relative to that location.
