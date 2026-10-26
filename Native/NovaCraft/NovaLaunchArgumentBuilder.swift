@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Builds the Minecraft Java command-line from downloaded official metadata.
 /// This is an argument resolver, not a JVM or executable game runtime.
@@ -44,8 +45,7 @@ enum NovaLaunchArgumentBuilder {
         let assetID = (json["assetIndex"] as? [String: Any])?["id"] as? String ?? version
         let assetRoot = root.appendingPathComponent("assets", isDirectory: true)
         let gameDir = root.appendingPathComponent("game", isDirectory: true)
-        let identity = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
-        let uuid = offlineUUID(for: nickname, namespace: identity)
+        let uuid = offlineUUID(for: nickname)
         let values: [String: String] = [
             "auth_player_name": nickname,
             "version_name": version,
@@ -106,14 +106,9 @@ enum NovaLaunchArgumentBuilder {
         return allowed
     }
 
-    /// Stable offline UUID based on username, without pretending to be a Microsoft identity.
-    private static func offlineUUID(for name: String, namespace: UUID) -> UUID {
-        // This deterministic UUID is local-only. It is not a verified player UUID.
-        var bytes = [UInt8](repeating: 0, count: 16)
-        for (index, byte) in ("OfflinePlayer:" + name).utf8.enumerated() {
-            let slot = index % 16
-            bytes[slot] = (bytes[slot] &* 31) &+ byte
-        }
+    /// Matches Java UUID.nameUUIDFromBytes("OfflinePlayer:" + name), local identity only.
+    private static func offlineUUID(for name: String) -> UUID {
+        var bytes = Array(Insecure.MD5.hash(data: Data(("OfflinePlayer:" + name).utf8)))
         bytes[6] = (bytes[6] & 0x0f) | 0x30
         bytes[8] = (bytes[8] & 0x3f) | 0x80
         return UUID(uuid: (bytes[0],bytes[1],bytes[2],bytes[3],bytes[4],bytes[5],bytes[6],bytes[7],bytes[8],bytes[9],bytes[10],bytes[11],bytes[12],bytes[13],bytes[14],bytes[15]))
