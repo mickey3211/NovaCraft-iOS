@@ -222,8 +222,9 @@ final class LauncherState: ObservableObject {
     }
 
     func launch() async {
-        guard !busy, selectedInstalled else {
-            if !selectedInstalled { message = "Najpierw pobierz pliki wybranej wersji Minecraft." }
+        let probeOnly = UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only")
+        guard !busy, (selectedInstalled || probeOnly) else {
+            message = "Najpierw pobierz pliki wybranej wersji Minecraft."
             return
         }
         busy = true
@@ -236,7 +237,9 @@ final class LauncherState: ObservableObject {
         try? FileManager.default.removeItem(at: documents.appendingPathComponent("NovaCraft-jvm-last-stage.txt"))
         try? FileManager.default.removeItem(at: documents.appendingPathComponent("NovaCraft-java-output.log"))
         try? FileManager.default.removeItem(at: documents.appendingPathComponent("NovaCraft-hotspot-boot.log"))
-        message = "Uruchamianie Minecraft \(selectedVersion)…"
+        message = probeOnly
+            ? "Testowanie samej Java 21 (bez Minecrafta i GLFW)…"
+            : "Uruchamianie Minecraft \(selectedVersion)…"
         UserDefaults.standard.set(true, forKey: "novacraft-jvm-launch-in-progress")
         UserDefaults.standard.synchronize()
         defer {
