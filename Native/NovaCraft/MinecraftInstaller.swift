@@ -205,6 +205,87 @@ final class MinecraftInstaller {
         progress(1)
     }
 
+    /// Prepare the manifest and asset index while the app is in the foreground.
+    /// Once queued, each large client/library/asset object is downloaded by the
+    /// system-owned background URLSession and survives app suspension.
+    /// Assets are NEVER extracted or executed; each is verified by SHA-1.
+    func prepareBackgroundInstall(version: MinecraftVersion) async throws -> NovaBackgroundPlan {
+        guard isTrusted(version.url, hosts: ["piston-meta.mojang.com"]) else {
+            throw InstallError.invalidManifest
+        }
+        let versionData = try await fetchData(version.url)
+        let detail = try JSONDecoder().decode(VersionDetail.self, from: versionData)
+        guard let client = detail.downloads["client"],
+              let assetIndex = detail.assetIndex,
+              isTrusted(client.url, hosts: ["piston-data.mojang.com", "launcher.mojang.com"]),
+              isTrusted(assetIndex.url, hosts: ["piston-meta.mojang.com", "launchermeta.mojang.com"]),
+              isSHA1(client.sha1), isSHA1(assetIndex.sha1) else {
+            throw InstallError.invalidManifest
+        }
+
+        // The index is relatively small; it is required to enumerate all the
+        // actual files and must be retrieved before background queueing begins.
+        let indexBytes = try await fetchData(assetIndex.url)
+        guard (assetIndex.size == nil || assetIndex.size == Int64(indexBytes.count)),
+              Self.sha1(indexBytes).caseInsensitiveCompare(assetIndex.sha1) == .orderedSame
+        else { throw InstallError.checksumMismatch }
+        let index = try JSONDecoder().decode(AssetIndex.self, from: indexBytes)
+
+        let folder = versionFolder(version.id)
+        try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        let complete = folder.appendingPathComponent("install-complete")
+        // Do not call the install finished until *all* background files have
+        // passed checksums and moved to their permanent locations.
+        try? fm.removeItem(at: complete)
+        try versionData.write(to: folder.appendingPathComponent("version.json"), options: .atomic)
+
+        let indexID = assetIndex.id ?? version.id
+        let indexDir = base.appendingPathComponent("assets/indexes", isDirectory: true)
+        try fm.createDirectory(at: indexDir, withIntermediateDirectories: true)
+        try indexBytes.write(to: indexDir.appendingPathComponent(safeID(indexID) + ".json"),
+                             options: .atomic)
+
+        func entry(url: URL, sha1: String, size: Int64?, relativePath: String) -> NovaBackgroundEntry {
+            NovaBackgroundEntry(id: UUID().uuidString, source: url, target: relativePath,
+                                checksum: sha1, expectedBytes: size, state: .queued, retries: 0)
+        }
+        var entries: [NovaBackgroundEntry] = []
+        entries.append(entry(url: client.url, sha1: client.sha1, size: client.size,
+                             relativePath: "versions/\(safeID(version.id))/client.jar"))
+
+        for library in (detail.libraries ?? []).filter(libraryAllowed) {
+            guard let artifact = library.downloads?.artifact else { continue }
+            guard isTrusted(artifact.url, hosts: ["libraries.minecraft.net"]),
+                  isSHA1(artifact.sha1),
+                  let path = safeComponents(artifact.path) else { throw InstallError.invalidManifest }
+            entries.append(entry(url: artifact.url, sha1: artifact.sha1,
+                                 size: artifact.size,
+                                 relativePath: "libraries/" + path.joined(separator: "/")))
+        }
+
+        // Deduplicate resources by SHA-1; distinct logical paths often point
+        // at the same file. Validate all resource URLs before queueing them.
+        var unique: [String: Int64] = [:]
+        for asset in index.objects.values {
+            guard isSHA1(asset.hash), asset.size >= 0 else { throw InstallError.invalidManifest }
+            unique[asset.hash.lowercased()] = asset.size
+        }
+        for (hash, size) in unique.sorted(by: { $0.key < $1.key }) {
+            let prefix = String(hash.prefix(2))
+            guard let url = URL(string: "https://resources.download.minecraft.net/\(prefix)/\(hash)")
+                else { throw InstallError.invalidManifest }
+            entries.append(entry(url: url, sha1: hash, size: size,
+                                 relativePath: "assets/objects/\(prefix)/\(hash)"))
+        }
+
+        return NovaBackgroundPlan(versionID: version.id, entries: entries,
+                                  isPaused: false, finished: false, errorMessage: nil)
+    }
+
+    private static func sha1(_ data: Data) -> String {
+        Insecure.SHA1.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
     /// Pobieranie na dysk, sprawdzanie SHA-1 i ponowne wykorzystanie poprawnych plików.
     private func downloadVerified(url: URL, sha1: String, size: Int64?,
                                   destination: URL) async throws {
