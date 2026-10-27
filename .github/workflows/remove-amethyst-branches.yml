@@ -1,0 +1,41 @@
+name: Remove imported Amethyst source branches
+
+# One-time cleanup explicitly requested by the NovaCraft repository owner.
+# Only deletes the two named GPL import branches. Never touches main.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/remove-amethyst-branches.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete imported Amethyst GPL branches only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEST_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for ref in amethyst-gpl-base novacraft-amethyst; do
+            response="$(mktemp)"
+            code="$(curl --retry 2 -sS -o "$response" -w '%{http_code}' \
+                -X DELETE \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$DEST_REPO/git/refs/heads/$ref")"
+            if [ "$code" = 204 ] || [ "$code" = 404 ]; then
+              echo "Removed or already absent: $ref"
+            else
+              echo "::error::Unable to delete $ref (HTTP $code)"
+              cat "$response"
+              exit 1
+            fi
+            rm -f "$response"
+          done
+          echo "Original NovaCraft main branch preserved."
