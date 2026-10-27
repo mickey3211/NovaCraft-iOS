@@ -1,5 +1,29 @@
 # NovaCraft Zero — osobny test JVM bez JIT
 
+## Wynik testu na fizycznym iPhone
+
+**28 października 2026 — potwierdzony przez użytkownika.**
+
+- Urządzenie: iPhone 13; iOS 27.0.1.
+- Osobna aplikacja `NovaCraft Zero` uruchomiła się po podpisaniu IPA.
+- `JNI_CreateJavaVM returned 0`.
+- `ZERO_JVM_PROBE_OK Java bytecode major 65 | suma=500500`.
+- `ZERO_JVM_PROBE_OK: JNI class executed on physical iOS device`.
+
+Oznacza to, że statycznie dołączona maszyna Zero z oficjalnego
+snapshotu OpenJDK Mobile potrafi na urządzeniu wykonać klasę
+skompilowaną w formacie Java 21. **Nie oznacza** to jeszcze, że
+snapshot jest środowiskiem JDK 21 ani że Minecraft jest grywalny.
+To pozytywny test JNI i podstawowego bytecode w niezależnej aplikacji.
+
+Kolejne wymagania przed pełnym NovaCraft:
+- spójny runtime iOS Zero dla wymaganej wersji Java i wszystkich modułów;
+- integracja statycznej JVM z oryginalnym interfejsem NovaCraft;
+- kompletne sprawdzenie Java API, bibliotek gry i natywnych zależności;
+- renderowanie Minecraft przez obsługę OpenGL/GLFW na iOS;
+- test na urządzeniu i analiza wydajności Zero bez JIT.
+
+
 **Cel:** potwierdzić na iPhonie 13 z iOS 27, że **statycznie
 zlinkowana maszyna Zero** potrafi utworzyć `JavaVM` i uruchomić jedną
 klasę Java, gdy dotychczasowy OpenJDK 21 Server VM dostaje
