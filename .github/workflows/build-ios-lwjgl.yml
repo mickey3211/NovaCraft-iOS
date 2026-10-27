@@ -127,6 +127,8 @@ jobs:
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
           bash scripts/package-java-runtime.sh "$APP"
           bash scripts/package-upstream-lwjgl-ios.sh "$APP"
+          bash scripts/package-nova-bootstrap.sh "$APP"
+          test -s "$APP/NovaBootstrap/novacraft-bootstrap.jar"
           test -s "$APP/Frameworks/NovaJava21.framework/NovaJava21"
           test -s "$APP/Frameworks/liblwjgl.dylib"
           test -s "$APP/LWJGL-iOS/lwjgl.jar"
