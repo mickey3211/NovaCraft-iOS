@@ -107,6 +107,7 @@ final class LauncherState: ObservableObject {
             // large client/library/asset download is then handled by Apple's
             // persistent background URLSession and its saved on-disk plan.
             let plan = try await installer.prepareBackgroundInstall(version: version)
+            installed.remove(version.id)
             try await NovaBackgroundDownloads.shared.begin(plan)
             message = "Minecraft \(version.id): transfery działają w tle. Możesz przełączyć się do innej aplikacji."
         } catch {
