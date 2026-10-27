@@ -171,14 +171,17 @@ static NSString *NovaDocumentsLogPath(void) {
         loadfunctions();
 
         NSString *cp = [@"-Djava.class.path=" stringByAppendingString:jar];
-        NSString *home = [@"-Djava.home=" stringByAppendingString:root];
-        const char *items[] = {cp.UTF8String, home.UTF8String, "-Xms16m", "-Xmx128m"};
-        JavaVMOption options[4] = {0};
-        for (int i = 0; i < 4; i++) options[i].optionString = (char *)items[i];
+        // The official OpenJDK Mobile static Zero sample does NOT override
+        // java.home. Its mobile runtime locates the bundled modules itself;
+        // overriding java.home can incorrectly look in app/lib/modules
+        // instead of the officially documented app/lib/lib/modules.
+        const char *items[] = {cp.UTF8String, "-Xms16m", "-Xmx128m"};
+        JavaVMOption options[3] = {0};
+        for (int i = 0; i < 3; i++) options[i].optionString = (char *)items[i];
 
         JavaVMInitArgs args = {0};
         args.version = JNI_VERSION_1_8;
-        args.nOptions = 4;
+        args.nOptions = 3;
         args.options = options;
         args.ignoreUnrecognized = JNI_FALSE;
 
