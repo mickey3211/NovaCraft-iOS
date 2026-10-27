@@ -98,6 +98,8 @@ bash scripts/build-vendor-ios-jre21.sh 2>&1 | tee "$LOGS/java-runtime.log"
 
 bash scripts/package-java-runtime.sh "$APP"
 bash scripts/package-upstream-lwjgl-ios.sh "$APP"
+bash scripts/package-nova-bootstrap.sh "$APP"
+[[ -s "$APP/NovaBootstrap/novacraft-bootstrap.jar" ]] || exit 1
 [[ -s "$APP/Frameworks/NovaJava21.framework/NovaJava21" ]] || exit 1
 [[ -s "$APP/Frameworks/liblwjgl.dylib" ]] || exit 1
 [[ -s "$APP/LWJGL-iOS/lwjgl.jar" ]] || exit 1
