@@ -45,6 +45,7 @@ enum NovaPerformance {
 
 struct NovaPerformanceSettingsView: View {
     @AppStorage("nova-heap-megabytes") private var heapMB = 768
+    @AppStorage("novacraft-ios-jvm-compatibility") private var iosCompatibility = true
     @AppStorage("nova-metal-fps") private var fps = 60
     @AppStorage("nova-world-side") private var worldSide = 24
     @AppStorage("nova-world-palette") private var palette = "aurora"
@@ -60,7 +61,14 @@ struct NovaPerformanceSettingsView: View {
                     ),
                     in: 384...Double(NovaPerformance.availableHeapMB()), step: 128
                 )
-                Text("Domyślnie 768 MB. Większe wartości mogą przyspieszyć grę, ale również spowodować zamknięcie aplikacji przez iOS przy braku RAM. Ustawienie jest przekazywane do JVM jako -Xmx. Nie usuwa ograniczeń JIT.")
+                Toggle("Tryb zgodności pamięci iOS", isOn: $iosCompatibility)
+                Text("Przy włączonej zgodności NovaCraft ogranicza heap do 768 MB na iPhonie z mniej niż 6 GB RAM i używa -XX:-UseCompressedOops. To sprawdza inny układ pamięci, ponieważ w logu pojawił się błąd rezerwacji 1 GB (errno 22). Nie gwarantuje naprawy awarii i nie zastępuje JIT ani Zero VM.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                if iosCompatibility && ProcessInfo.processInfo.physicalMemory < 6 * 1024 * 1024 * 1024 && heapMB > 768 {
+                    Label("Efektywny limit JVM: 768 MB", systemImage: "info.circle")
+                        .foregroundStyle(.orange)
+                }
+                Text("Wybrana wartość -Xmx może spowodować zatrzymanie aplikacji przez iOS przy braku RAM. Tryb testowy JVM niezależnie używa 256 MB.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button("Przywróć bezpieczne 768 MB") { heapMB = 768 }
             }
