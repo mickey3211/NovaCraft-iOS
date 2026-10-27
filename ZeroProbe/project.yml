@@ -9,14 +9,14 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: ZeroProbe/Source
-      - path: ZeroProbe/Resources/NovaZeroSmoke.jar
+      - path: Source
+      - path: Resources/NovaZeroSmoke.jar
         buildPhase: resources
-      - path: ZeroProbe/Resources/lib
+      - path: Resources/lib
         type: folder
         buildPhase: resources
     dependencies:
-      - framework: ZeroProbe/OpenJDK.xcframework
+      - framework: OpenJDK.xcframework
         embed: false
         link: true
       - sdk: libz.tbd
