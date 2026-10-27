@@ -13,7 +13,20 @@ enum NovaGameRunner {
                 .appendingPathComponent("lib/server/libjvm.dylib").path
             : library.path
         let nativePath = Bundle.main.privateFrameworksURL?.path ?? ""
-        let classpath = iosLWJGLClasspath(fallback: args.classpath)
+        // A tiny first-party Java 8-compatible trampoline records the first
+        // executed Java bytecode before loading Minecraft. It lets us tell
+        // JVM initialization failure from Minecraft classpath/graphics errors.
+        let bootstrap = Bundle.main.bundleURL
+            .appendingPathComponent("NovaBootstrap/novacraft-bootstrap.jar")
+        guard javaMajor != 21 || FileManager.default.fileExists(atPath: bootstrap.path)
+            else { return -56 }
+        let classpath = javaMajor == 21
+            ? bootstrap.path + ":" + iosLWJGLClasspath(fallback: args.classpath)
+            : iosLWJGLClasspath(fallback: args.classpath)
+        let entrypoint = javaMajor == 21 ? "dev.novacraft.GameEntrypoint" : args.mainClass
+        let gameArguments = javaMajor == 21
+            ? [args.mainClass] + args.gameArguments
+            : args.gameArguments
         // Resolve JVM properties against the classpath that actually includes
         // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
         var jvmOptions = normalizeJVMOptions(args.jvmArguments)
@@ -42,6 +55,9 @@ enum NovaGameRunner {
         // This does not provide a renderer; it only configures LWJGL's thread checks.
         jvmOptions.append("-Dorg.lwjgl.glfw.checkThread0=false")
         jvmOptions.append("-Dorg.lwjgl.system.allocator=system")
+        if javaMajor == 21 && UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") {
+            jvmOptions.append("-Dnovacraft.jvmProbeOnly=true")
+        }
         if experimentalDirectJNI {
             // The direct Invocation API needs these iOS VM flags too; the
             // JLI adapter normally adds them before calling JLI_Launch.
@@ -68,7 +84,7 @@ enum NovaGameRunner {
             jvmOptions.append("-Xlog:os=info:file=\(bootLog):uptime,level,tags:filecount=2,filesize=2M")
         }
 
-        let gamePointers = args.gameArguments.map { strdup($0) }
+        let gamePointers = gameArguments.map { strdup($0) }
         let jvmPointers = jvmOptions.map { strdup($0) }
         defer {
             gamePointers.forEach { free($0) }
@@ -79,7 +95,7 @@ enum NovaGameRunner {
         return gameStrings.withUnsafeBufferPointer { gameBuffer in
             vmStrings.withUnsafeBufferPointer { vmBuffer in
                 runtimePath.withCString { runtimePath in
-                    args.mainClass.withCString { mainClass in
+                    entrypoint.withCString { mainClass in
                         classpath.withCString { classpath in
                             nativePath.withCString { nativeDir in
                                 // OpenJDK Mobile iOS launchers use JLI_Launch instead of
