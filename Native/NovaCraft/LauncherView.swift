@@ -260,6 +260,15 @@ struct LauncherView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                         Toggle("Testuj tylko JVM (bez Minecrafta)", isOn: $jvmProbeOnly)
                             .disabled(state.busy)
+                        Button {
+                            jvmProbeOnly = true
+                            Task { await state.launch() }
+                        } label: {
+                            Label("Uruchom samą Java 21 (test)", systemImage: "play.circle")
+                        }
+                        .disabled(state.busy)
+                        Text("Test nie wymaga pobranego Minecrafta ani konta. Sprawdza, czy JVM potrafi uruchomić jedną małą klasę Java; test może zamknąć aplikację, jeśli problem leży w natywnym HotSpot.")
+                            .font(.footnote).foregroundStyle(.secondary)
                         Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
                             .font(.footnote).foregroundStyle(.secondary)
                         Label("Naprawiony start JVM: JNI_CreateJavaVM", systemImage: "checkmark.shield.fill")
