@@ -1,9 +1,17 @@
 # NovaCraft iOS — Minecraft Java Launcher (wersja eksperymentalna)
 
 **NovaCraft** to niezależny projekt launchera Minecraft Java Edition na iPhone'a
-i iPada. Aplikacja jest rozwijana w SwiftUI, z obsługą instalacji plików gry,
-wersji Minecraft, logowania Microsoft i eksperymentalnego uruchamiania Java 21
-oraz LWJGL na iOS.
+i iPada, prowadzony przez **mickey3211**. Aplikacja jest rozwijana w SwiftUI,
+z obsługą instalacji plików gry, wersji Minecraft, logowania Microsoft
+i eksperymentalnego uruchamiania Java 21 oraz LWJGL na iOS.
+
+**NovaEngine Metal:** własny kod renderowania sceny voxelowej 24×24,
+perspektywa 3D, generowanie widocznych ścian i sterowanie dotykowe.
+Otwórz **Ustawienia → Uruchom autorski świat NovaEngine**, żeby
+uruchomić niezależny test silnika graficznego.
+
+[Architektura własnego NovaEngine](docs/NOVAENGINE-ORIGINAL.md).
+Kod tego silnika nie jest kopią Amethyst ani jego portem.
 
 > **Stan projektu:** prototyp / eksperymentalny silnik. Udana kompilacja IPA
 > **nie** potwierdza, że Minecraft uruchomi się i będzie grywalny. Nadal
@@ -50,6 +58,8 @@ skontaktuj się z właścicielem repozytorium i uzyskaj pisemną zgodę.
 - Przygotowanie uruchamiania Java 21 i bibliotek LWJGL dla iOS.
 - Raporty diagnostyczne startu JVM i błędów po naciśnięciu **Graj**.
 - Eksperymentalne ekrany testowe Metal i sterowania dotykowego.
+- **Autorski renderer terenu voxelowego Metal** z własnym shaderem, kamerą
+  obrotową, powiększaniem i cieniowaniem powierzchni.
 - Proces tworzenia niepodpisanego IPA w Codemagic.
 
 ## Kompilacja
