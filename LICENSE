@@ -1,0 +1,41 @@
+NOVACRAFT iOS — PROPRIETARY SOURCE NOTICE
+Copyright (c) 2026 mickey3211. All rights reserved.
+
+SCOPE
+This notice applies only to original NovaCraft iOS source code, artwork,
+documentation, and other materials for which the copyright holder owns the
+relevant rights. It does NOT replace, restrict, or override any applicable
+license for third-party software, contributed material, Minecraft assets, or
+other material not owned by the copyright holder.
+
+NO SOURCE-CODE LICENSE GRANTED
+Making this repository available for public viewing does not grant permission
+to copy, modify, adapt, redistribute, sublicense, sell, or incorporate the
+original NovaCraft source code into another project, including a different
+Minecraft launcher, without prior written permission from the appropriate
+copyright holder(s). Creating and distributing derivative works from the
+original NovaCraft code is not authorized by this notice.
+
+Rights that must be permitted by applicable law, GitHub's Terms of Service
+(including viewing and forking public repositories), or another valid existing
+license are not withdrawn or restricted by this notice.
+
+THIRD-PARTY SOFTWARE
+This repository uses build-time dependencies including OpenJDK and an iOS
+fork of LWJGL. These components remain licensed by their respective owners;
+their licenses and any accompanying redistribution obligations take precedence
+for those components. See THIRD_PARTY_NOTICES.md. This notice does not claim
+copyright ownership of third-party code or Minecraft/Mojang/Microsoft assets.
+
+PAST PERMISSIONS AND CONTRIBUTIONS
+Any permissions that were validly granted to recipients earlier cannot be
+unilaterally revoked by publishing this notice. Contributors retain any
+copyright interests they may own in their contributions.
+
+PERMISSION REQUESTS
+Contact the maintainer through the repository's GitHub Issues or another
+channel they designate to request a separate written license.
+
+This notice is intended to clarify that the original NovaCraft source is
+source-available for inspection, NOT open-source licensed. It is not a
+technical measure that prevents downloads or copying.
