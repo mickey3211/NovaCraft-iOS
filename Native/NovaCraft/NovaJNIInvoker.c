@@ -291,6 +291,31 @@ int nova_jni_invoke_main(const char *runtime_path,
 }
 
 
+// Check actual runtime dependencies while Swift error-handling is still
+// available. libjvm can load successfully even when a later Java library is
+// not signed or is missing; otherwise JLI may terminate without a Swift error.
+static int nova_check_runtime_dependency(const char *home, const char *name) {
+    char path[PATH_MAX];
+    int n = snprintf(path, sizeof(path), "%s/lib/%s", home, name);
+    if (n < 0 || (size_t)n >= sizeof(path)) return -57;
+    if (access(path, R_OK) != 0) {
+        char report[400];
+        snprintf(report, sizeof(report), "JLI: brak wymaganej biblioteki %.180s", name);
+        nova_checkpoint(report);
+        return -58;
+    }
+    void *handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
+    if (!handle) {
+        const char *reason = dlerror();
+        char report[768];
+        snprintf(report, sizeof(report), "JLI: %.120s - podpis/zaleznosci: %.450s",
+                 name, reason ? reason : "brak opisu dyld");
+        nova_checkpoint(report);
+        return -59;
+    }
+    return 0; // Keep dependency loaded for HotSpot/JLI to use.
+}
+
 // OpenJDK iOS bootstrap through libjli rather than direct JNI_CreateJavaVM.
 // This is an independent adapter to OpenJDK's public Java Launcher Interface,
 // not a copy of another launcher's code. Both startup paths must be tested
@@ -381,6 +406,16 @@ int nova_jli_launch_main(const char *runtime_path,
         return -50;
     }
     nova_checkpoint("JLI: libjvm załadowana; przygotowanie Java 21");
+    // Core libraries can fail code-signing validation *after* libjvm loads.
+    // Return the dyld cause as a checkpoint before invoking JLI.
+    const char *required_jre_libs[] = { "libjava.dylib", "libjimage.dylib", "libverify.dylib", "libzip.dylib" };
+    for (size_t lib_index = 0;
+         lib_index < sizeof(required_jre_libs) / sizeof(required_jre_libs[0]);
+         lib_index++) {
+        int ok = nova_check_runtime_dependency(home, required_jre_libs[lib_index]);
+        if (ok != 0) return ok;
+    }
+    nova_checkpoint("JLI: podpisy i zaleznosci glownych bibliotek Java OK");
 
     size_t argc = (size_t)jvm_option_count + (size_t)game_arg_count + 12;
     const char **argv = calloc(argc, sizeof(*argv));
@@ -409,6 +444,9 @@ int nova_jli_launch_main(const char *runtime_path,
     nova_checkpoint("JLI: uruchamianie środowiska Java 21 i klasy Minecraft");
     int saved_stdout = -1, saved_stderr = -1;
     nova_begin_java_log(&saved_stdout, &saved_stderr);
+    fprintf(stderr, "[NovaCraft] JLI_Launch invoked; Java entrypoint should write JVM_ENTRY_REACHED.\n");
+    fflush(stderr);
+    fsync(STDERR_FILENO);
     jint result = launch((int)i, argv, 0, NULL, 0, NULL,
                          "21", "21", "java", "openjdk",
                          0, 1, 0, 1);
