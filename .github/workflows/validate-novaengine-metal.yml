@@ -6,6 +6,9 @@ on:
     paths:
       - ".github/workflows/validate-novaengine-metal.yml"
       - "Native/NovaCraft/NovaVoxelEngine.swift"
+      - "Native/NovaCraft/NovaLibraryDashboard.swift"
+      - "Native/NovaCraft/NovaPerformanceSettings.swift"
+      - "Native/NovaCraft/NovaGameRunner.swift"
       - "Native/NovaCraft/LauncherView.swift"
       - "Native/NovaCraft/NovaCraftApp.swift"
       - "project.yml"
