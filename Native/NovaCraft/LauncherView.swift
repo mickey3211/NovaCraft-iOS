@@ -9,6 +9,7 @@ struct LauncherView: View {
     @AppStorage("download-wifi-reminder") private var wifiReminder = true
     @AppStorage("prefer-dark-interface") private var preferDarkInterface = true
     @AppStorage("novacraft-experimental-direct-jni") private var experimentalDirectJNI = false
+    @AppStorage("novacraft-jvm-probe-only") private var jvmProbeOnly = false
     @State private var offlineNickname = ""
     @State private var serverName = ""
     @State private var serverAddress = ""
@@ -228,6 +229,10 @@ struct LauncherView: View {
                         }
                         Text("Bezpieczny test ładowania libjli i libjvm. Nie uruchamia drugiej maszyny Java ani gry. Wynik znajdziesz na karcie Start.")
                             .font(.footnote).foregroundStyle(.secondary)
+                        Toggle("Testuj tylko JVM (bez Minecrafta)", isOn: $jvmProbeOnly)
+                            .disabled(state.busy)
+                        Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod NOVACRAFT_JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
+                            .font(.footnote).foregroundStyle(.secondary)
                         Toggle("Testuj start przez JNI zamiast JLI", isOn: $experimentalDirectJNI)
                             .disabled(state.busy)
                         Text("Tryb eksperymentalny: gdy JLI przerywa start na iOS, można porównać zachowanie bezpośredniego JNI_CreateJavaVM. Nie omija podpisu bibliotek ani ograniczeń JIT. Zmieniaj tryb tylko przed naciśnięciem Graj.")
@@ -382,7 +387,7 @@ struct LauncherView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: state.selectedInstalled ? "play.fill" : "arrow.down.circle.fill")
-                    Text("Graj")
+                    Text(jvmProbeOnly ? "Test JVM" : "Graj")
                         .font(.title3.bold())
                 }
                 .frame(maxWidth: .infinity)
