@@ -1,0 +1,94 @@
+name: Import Amethyst iOS GPL source into isolated branch
+
+# Copy source to a separate GPL branch; never overwrite proprietary NovaCraft.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/import-amethyst-gpl.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-amethyst-gpl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Fetch complete Amethyst source with dependencies
+        env:
+          DEST_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SRC="$RUNNER_TEMP/amethyst-source"
+          git clone --depth 1 --recurse-submodules --shallow-submodules \
+            https://github.com/AngelAuraMC/Amethyst-iOS.git "$SRC"
+          UPSTREAM_SHA="$(git -C "$SRC" rev-parse HEAD)"
+          echo "Imported upstream: $UPSTREAM_SHA"
+
+          # Preserve GPL-3.0 license, original notices and upstream source.
+          test -s "$SRC/LICENSE"
+          grep -q 'GNU GENERAL PUBLIC LICENSE' "$SRC/LICENSE"
+          test -s "$SRC/Natives/JavaLauncher.m"
+
+          # Preserve all upstream workflow files but do not allow unreviewed
+          # workflow code to execute with credentials in the destination.
+          if [ -d "$SRC/.github/workflows" ]; then
+            mkdir -p "$SRC/Upstream-CI-Reference"
+            mv "$SRC/.github/workflows" "$SRC/Upstream-CI-Reference/workflows"
+          fi
+          cat > "$SRC/NOVACRAFT_IMPORT_NOTICE.md" <<EOF
+          # Amethyst iOS source imported for NovaCraft research
+
+          Original source: https://github.com/AngelAuraMC/Amethyst-iOS
+          Original upstream commit: $UPSTREAM_SHA
+          Import date: 2026-10-27
+
+          This branch contains independent, GNU GPL-3.0-licensed Amethyst
+          iOS source (including the original license, third-party notices,
+          binaries and upstream Git submodules). It is NOT a proprietary
+          NovaCraft release, NOT yet integrated with NovaCraft, and not a
+          ready-to-install IPA.
+
+          NovaCraft main is a separate proprietary codebase. Its source
+          license does not apply to this Amethyst branch.
+
+          Upstream workflow files are preserved unmodified under
+          Upstream-CI-Reference/workflows for security review before use.
+
+          Running Minecraft on iOS additionally requires correctly signed
+          native components and appropriate JVM/JIT/graphics capabilities.
+          EOF
+
+          # Orphan root commit ensures no proprietary NovaCraft code or
+          # Git history is mixed into the GNU GPL source tree.
+          git -C "$SRC" checkout --orphan amethyst-gpl-base
+          git -C "$SRC" config user.name "NovaCraft source import"
+          git -C "$SRC" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$SRC" add -A
+          git -C "$SRC" commit -m "Import Amethyst iOS upstream $UPSTREAM_SHA under GPL-3.0"
+
+          mkdir -p "$RUNNER_TEMP/amethyst-export"
+          tar --exclude='.git' --exclude='*/.git' \
+            -czf "$RUNNER_TEMP/amethyst-export/Amethyst-iOS-GPL-source.tar.gz" \
+            -C "$SRC" .
+
+          REMOTE="https://github.com/$DEST_REPOSITORY.git"
+          if git ls-remote --exit-code "$REMOTE" refs/heads/amethyst-gpl-base >/dev/null 2>&1; then
+            echo "::notice::amethyst-gpl-base already exists; leaving it untouched."
+            exit 0
+          fi
+          AUTH_REMOTE="https://x-access-token:$GH_TOKEN@github.com/$DEST_REPOSITORY.git"
+          git -C "$SRC" push "$AUTH_REMOTE" HEAD:refs/heads/amethyst-gpl-base
+          echo "::notice::Copied Amethyst to branch amethyst-gpl-base. NovaCraft main untouched."
+
+      - name: Upload source bundle for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amethyst-iOS-GPL-full-source-reference
+          path: ${{ runner.temp }}/amethyst-export/Amethyst-iOS-GPL-source.tar.gz
+          if-no-files-found: ignore
+          retention-days: 7
