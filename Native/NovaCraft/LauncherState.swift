@@ -100,21 +100,25 @@ final class LauncherState: ObservableObject {
         guard !busy, let version = versions.first(where: { $0.id == selectedVersion }) else { return }
         busy = true
         downloadProgress = 0
-        message = "Pobieranie wersji \(version.id)…"
+        message = "Przygotowywanie pobierania w tle dla Minecraft \(version.id)… Pozostaw aplikację otwartą do rozpoczęcia transferów."
         defer { busy = false }
         do {
-            try await installer.install(version: version) { [weak self] progress in
-                Task { @MainActor in
-                    guard let self else { return }
-                    // Avoid redrawing the entire launcher for every asset byte.
-                    if progress >= 1 || progress - self.downloadProgress >= 0.01 {
-                        self.downloadProgress = progress
-                    }
-                }
-            }
-            installed.insert(version.id)
-            message = "Pobrano i zweryfikowano pliki Minecraft \(version.id). Możesz nacisnąć Graj."
-        } catch { message = "Błąd instalacji: \(error.localizedDescription)" }
+            // Mojang's small metadata and asset index are fetched first. Every
+            // large client/library/asset download is then handled by Apple's
+            // persistent background URLSession and its saved on-disk plan.
+            let plan = try await installer.prepareBackgroundInstall(version: version)
+            try await NovaBackgroundDownloads.shared.begin(plan)
+            message = "Minecraft \(version.id): transfery działają w tle. Możesz przełączyć się do innej aplikacji."
+        } catch {
+            message = "Błąd przygotowania pobierania w tle: \(error.localizedDescription)"
+        }
+    }
+
+    func reflectBackgroundInstall(_ id: String) {
+        installed = Set(versions.filter { installer.isInstalled($0.id) }.map(\.id))
+        if installed.contains(id) {
+            message = "Minecraft \(id): pliki pobrane i zweryfikowane. Możesz nacisnąć Graj."
+        }
     }
 
     func removeSelected() {
