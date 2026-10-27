@@ -1,0 +1,46 @@
+name: Validate original NovaEngine Metal source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/validate-novaengine-metal.yml"
+      - "Native/NovaCraft/NovaVoxelEngine.swift"
+      - "Native/NovaCraft/LauncherView.swift"
+      - "Native/NovaCraft/NovaCraftApp.swift"
+      - "project.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare XcodeGen and app icon
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/nova-venv"
+          "$RUNNER_TEMP/nova-venv/bin/python" -m pip install --disable-pip-version-check pillow
+          "$RUNNER_TEMP/nova-venv/bin/python" scripts/generate-app-icon.py
+          xcodegen generate
+      - name: Compile standalone iPhone app (without Java bundle)
+        run: |
+          set -euo pipefail
+          xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee "$RUNNER_TEMP/novaengine-xcode.log"
+          test -s "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app/NovaCraft"
+      - name: Save compiler log if compilation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaEngine-Metal-Xcode-Errors
+          path: ${{ runner.temp }}/novaengine-xcode.log
+          if-no-files-found: ignore
+          retention-days: 7
