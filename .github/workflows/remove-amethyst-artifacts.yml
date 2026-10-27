@@ -1,0 +1,57 @@
+name: Delete old imported Amethyst binaries and source artifacts
+
+# One-time repository cleanup requested by the owner.
+# Only remove four previously verified artifacts, never the original NovaCraft IPA.
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/remove-amethyst-artifacts.yml"]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete copied GPL source and derivative IPA artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for id in 12761043271 12763435576 12762687650 12762818020; do
+            case "$id" in
+              12761043271) expected="Amethyst-iOS-GPL-full-source-reference" ;;
+              *) expected="NovaCraft-Amethyst-Engine-GPL-unsigned-IPA" ;;
+            esac
+            response="$(mktemp)"
+            code="$(curl --retry 2 -sS -o "$response" -w '%{http_code}' \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$GH_REPO/actions/artifacts/$id")"
+            if [ "$code" = 404 ]; then
+              echo "Already absent: $id"
+              rm -f "$response"
+              continue
+            fi
+            if [ "$code" != 200 ]; then
+              cat "$response"
+              exit 1
+            fi
+            actual="$(jq -r .name "$response")"
+            rm -f "$response"
+            if [ "$actual" != "$expected" ]; then
+              echo "::error::Refusing to delete artifact $id named $actual"
+              exit 1
+            fi
+            status="$(curl --retry 2 -sS -o /dev/null -w '%{http_code}' -X DELETE \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$GH_REPO/actions/artifacts/$id")"
+            [ "$status" = 204 ] || { echo "::error::Could not delete $id ($status)"; exit 1; }
+            echo "Deleted old imported artifact: $id"
+          done
+          echo "Deletion does not erase Git history, other copies, or upstream license obligations."
