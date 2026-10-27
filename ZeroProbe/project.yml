@@ -10,13 +10,15 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Source
+        excludes:
+          - Info.plist
       - path: Resources/NovaZeroSmoke.jar
         buildPhase: resources
       - path: Resources/lib
         type: folder
         buildPhase: resources
     dependencies:
-      - framework: OpenJDK.xcframework
+      - framework: ZeroProbe/OpenJDK.xcframework
         embed: false
         link: true
       - sdk: libz.tbd
