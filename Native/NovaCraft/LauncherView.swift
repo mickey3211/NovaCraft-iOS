@@ -494,7 +494,26 @@ struct LauncherView: View {
                 .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
             }
 
+            // The user's crash log showed a full Minecraft launch, not the
+            // independent low-memory Java probe. Keep test and game separate.
             Button {
+                jvmProbeOnly = true
+                Task { await state.launch() }
+            } label: {
+                Label("Test Java 21 — bez Minecrafta", systemImage: "cpu")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 5)
+            }
+            .buttonStyle(.bordered)
+            .disabled(state.busy)
+            Text("Najpierw uruchom ten test. Użyje wyłącznie małej klasy Java i 256 MB pamięci. Jeśli aplikacja się wyłączy, otwórz Ustawienia → Pełny raport awarii Java 21.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                // Launching Minecraft must never silently inherit a JVM-test
+                // toggle from the preceding diagnostic attempt.
+                jvmProbeOnly = false
                 Task {
                     if state.selectedInstalled {
                         await state.launch()
@@ -505,9 +524,7 @@ struct LauncherView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: state.selectedInstalled ? "play.fill" : "arrow.down.circle.fill")
-                    Text(state.selectedInstalled
-                         ? (jvmProbeOnly ? "Test JVM" : "Graj")
-                         : "Pobierz w tle")
+                    Text(state.selectedInstalled ? "Graj" : "Pobierz w tle")
                         .font(.title3.bold())
                 }
                 .frame(maxWidth: .infinity)
