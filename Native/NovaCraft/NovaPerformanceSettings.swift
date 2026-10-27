@@ -56,7 +56,7 @@ struct NovaPerformanceSettingsView: View {
                 Slider(
                     value: Binding(
                         get: { Double(heapMB) },
-                        set: { heapMB = Int($0 / 128).rounded() * 128 }
+                        set: { heapMB = Int(($0 / 128).rounded()) * 128 }
                     ),
                     in: 384...Double(NovaPerformance.availableHeapMB()), step: 128
                 )
