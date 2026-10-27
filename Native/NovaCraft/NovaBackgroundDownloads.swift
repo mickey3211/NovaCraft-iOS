@@ -63,7 +63,7 @@ extension Notification.Name {
 /// asset downloads. Apple transfers these jobs in a separate OS process.
 /// A saved manifest survives NovaCraft suspension and an ordinary app restart.
 final class NovaBackgroundDownloads: NSObject, ObservableObject, URLSessionDownloadDelegate {
-    static let identifier = "pl.novacraft.launcher.minecraft.background.v1"
+    static let identifier = "pl.novacraft.zero.integrated.minecraft.background.v1"
     static let shared = NovaBackgroundDownloads()
 
     @Published private(set) var snapshot = NovaDownloadSnapshot()
