@@ -229,6 +229,16 @@ struct LauncherView: View {
                         Text("Pliki Minecraft mogą zajmować dużo miejsca. Pobieranie wykorzystuje aktywne połączenie internetowe.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
+                    Section("OpenJDK Zero — bez JIT (integracja testowa)") {
+                        NavigationLink {
+                            NovaZeroIntegratedScreen()
+                        } label: {
+                            Label("Uruchom test Java Zero w NovaCraft", systemImage: "cpu.fill")
+                                .foregroundStyle(.green)
+                        }
+                        Text("To osobny wariant deweloperski NovaCraft. Pokazuje, czy bez-JIT Java działa w Twoim prawdziwym launcherze SwiftUI. Nie uruchamia jeszcze Minecraft Java.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Section("NovaEngine — autorski silnik 3D") {
                         NavigationLink {
                             NovaVoxelEngineScreen()
