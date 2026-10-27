@@ -25,4 +25,12 @@ mkdir -p "$TMP/classes" "$APP/NovaBootstrap"
 "$JAR_TOOL" cf "$APP/NovaBootstrap/novacraft-bootstrap.jar" -C "$TMP/classes" .
 [[ -s "$APP/NovaBootstrap/novacraft-bootstrap.jar" ]] || exit 1
 "$JAR_TOOL" tf "$APP/NovaBootstrap/novacraft-bootstrap.jar" | grep -Fx 'dev/novacraft/GameEntrypoint.class'
-echo "Bundled NovaCraft Java startup diagnostics (Java 8-compatible class)."
+# Compile-time smoke test: execute this exact class on the build runner.
+# This verifies Java bytecode and the launch arguments without touching iOS JIT.
+JAVA_TOOL="$(dirname "$JAVAC")/java"
+if [[ ! -x "$JAVA_TOOL" ]]; then JAVA_TOOL="$(command -v java || true)"; fi
+[[ -n "$JAVA_TOOL" ]] || { echo "java command not found" >&2; exit 1; }
+"$JAVA_TOOL" -Dnovacraft.jvmProbeOnly=true \
+    -cp "$APP/NovaBootstrap/novacraft-bootstrap.jar" \
+    dev.novacraft.GameEntrypoint
+echo "Bundled and smoke-tested NovaCraft Java 8-compatible diagnostic class."
