@@ -20,16 +20,21 @@ enum NovaGameRunner {
             .appendingPathComponent("NovaBootstrap/novacraft-bootstrap.jar")
         guard javaMajor != 21 || FileManager.default.fileExists(atPath: bootstrap.path)
             else { return -56 }
-        let classpath = javaMajor == 21
-            ? bootstrap.path + ":" + iosLWJGLClasspath(fallback: args.classpath)
-            : iosLWJGLClasspath(fallback: args.classpath)
+        let probeOnly = javaMajor == 21 &&
+            UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only")
+        // Do not load Minecraft's argument list/classpath during a JVM probe.
+        // The first step is testing that Java can execute one tiny class.
+        let classpath = probeOnly
+            ? bootstrap.path
+            : (javaMajor == 21
+                ? bootstrap.path + ":" + iosLWJGLClasspath(fallback: args.classpath)
+                : iosLWJGLClasspath(fallback: args.classpath))
         let entrypoint = javaMajor == 21 ? "dev.novacraft.GameEntrypoint" : args.mainClass
-        let gameArguments = javaMajor == 21
-            ? [args.mainClass] + args.gameArguments
-            : args.gameArguments
+        let gameArguments = probeOnly ? [] :
+            (javaMajor == 21 ? [args.mainClass] + args.gameArguments : args.gameArguments)
         // Resolve JVM properties against the classpath that actually includes
         // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
-        var jvmOptions = normalizeJVMOptions(args.jvmArguments)
+        var jvmOptions = probeOnly ? [] : normalizeJVMOptions(args.jvmArguments)
         // JLI derives java.home from its bundled launcher path; do not
         // override it there. The direct Invocation API, however, does not
         // perform JLI path discovery and needs the explicit Java home.
@@ -40,8 +45,13 @@ enum NovaGameRunner {
         // User-controlled memory budget (384…1024 MB on 4 GB devices).
         // Clamp by physical RAM to reduce iOS jetsam termination risk.
         // This does not enable JIT or change Java/LWJGL compatibility.
-        let heapMB = NovaPerformance.heapMB
+        let heapMB = probeOnly ? 256 : NovaPerformance.heapMB
         jvmOptions.removeAll { $0.hasPrefix("-Xmx") || $0 == "-Xint" }
+        if probeOnly {
+            // Isolate VM startup from memory-heavy game settings.
+            jvmOptions.append("-Xms32m")
+            jvmOptions.append("-XX:ReservedCodeCacheSize=32m")
+        }
         jvmOptions.append("-Xmx\(heapMB)m")
         jvmOptions.append("-Xint")
         jvmOptions.append("-XX:+UseSerialGC")
@@ -53,7 +63,7 @@ enum NovaGameRunner {
         // This does not provide a renderer; it only configures LWJGL's thread checks.
         jvmOptions.append("-Dorg.lwjgl.glfw.checkThread0=false")
         jvmOptions.append("-Dorg.lwjgl.system.allocator=system")
-        if javaMajor == 21 && UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") {
+        if probeOnly {
             jvmOptions.append("-Dnovacraft.jvmProbeOnly=true")
         }
         if javaMajor == 21 {
@@ -79,7 +89,9 @@ enum NovaGameRunner {
             // HotSpot writes to this file independently of stdout/stderr.
             // It may survive early JVM initialization crashes on iOS.
             let bootLog = documents.appendingPathComponent("NovaCraft-hotspot-boot.log").path
-            jvmOptions.append("-Xlog:os=info:file=\(bootLog):uptime,level,tags:filecount=2,filesize=2M")
+            // Persist thread, memory-mapping and GC initialization events
+            // before a native fatal signal or iOS termination.
+            jvmOptions.append("-Xlog:os*=debug,arguments=info,gc+init=info:file=\(bootLog):uptime,level,tags:filecount=2,filesize=4M")
         }
 
         let gamePointers = gameArguments.map { strdup($0) }
