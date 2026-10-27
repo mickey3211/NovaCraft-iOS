@@ -70,13 +70,13 @@ static void nova_begin_java_log(int *saved_stdout, int *saved_stderr) {
     close(fd);
     *saved_stdout = stdout_copy;
     *saved_stderr = stderr_copy;
-    fprintf(stderr, "[NovaCraft] Java 21 JLI launch started.\n");
+    fprintf(stderr, "[NovaCraft] Java runtime startup: stdout/stderr capture active.\n");
     fflush(stderr);
 }
 
 static void nova_end_java_log(int saved_stdout, int saved_stderr, int exit_code) {
     if (saved_stdout < 0 || saved_stderr < 0) return;
-    fprintf(stderr, "[NovaCraft] Java launcher returned exit code %d.\n", exit_code);
+    fprintf(stderr, "[NovaCraft] JVM entrypoint returned exit code %d.\n", exit_code);
     fflush(NULL);
     dup2(saved_stdout, STDOUT_FILENO);
     dup2(saved_stderr, STDERR_FILENO);
@@ -200,7 +200,7 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
         dlclose(library);
         return result != 0 ? result : -15;
     }
-    nova_checkpoint("Maszyna Java utworzona; wczytywanie klasy Minecraft");
+    nova_checkpoint("JNI: JVM utworzona; wczytywanie klasy NovaCraft bootstrap");
     already_started = 1;
     retained_library = library;
 
@@ -223,7 +223,7 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
     for (size_t i = 0; i < length; i++) {
         if (class_name[i] == '.') class_name[i] = '/';
     }
-    nova_checkpoint("Wyszukiwanie klasy głównej Minecraft");
+    nova_checkpoint("JNI: wyszukiwanie klasy Java bootstrap");
     jclass entry = findClass(env, class_name);
     free(class_name);
     if (!entry || hasException(env)) {
@@ -260,13 +260,13 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
     }
     // JNI jvalue union: a single jobject argument occupies pointer-sized storage.
     jobject parameter = args;
-    nova_checkpoint("Uruchamianie Minecraft main() i grafiki LWJGL");
+    nova_checkpoint("JNI: wywołanie Java main() (NovaCraft bootstrap)");
     callMain(env, entry, method, &parameter);
     if (hasException(env)) {
         describeException(env);
         return -24;
     }
-    nova_checkpoint("Minecraft main() zakończyła działanie");
+    nova_checkpoint("JNI: metoda Java main() zakończyła działanie");
     return 0;
 }
 
