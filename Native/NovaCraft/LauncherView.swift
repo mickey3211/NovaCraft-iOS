@@ -32,6 +32,7 @@ struct LauncherView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         hero
                         overview
+                        quickActions
                         versionPanel
                         installPanel
 
@@ -205,6 +206,20 @@ struct LauncherView: View {
                         Text("Autorski kod NovaCraft nie korzysta z implementacji Amethyst. Zewnętrzne środowisko OpenJDK, biblioteki LWJGL i Minecraft pozostają własnością ich autorów i podlegają własnym licencjom.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
+                    Section("Pliki, dodatki i pamięć") {
+                        NavigationLink {
+                            NovaLibraryDashboard()
+                        } label: {
+                            Label("Biblioteka plików i resource packi", systemImage: "folder.badge.gearshape")
+                        }
+                        NavigationLink {
+                            NovaPerformanceSettingsView()
+                        } label: {
+                            Label("Ustawienia wydajności Java i Metal", systemImage: "speedometer")
+                        }
+                        Text("Zarządzaj plikami wersji, zajętością pamięci, paczkami zasobów i dziennikami. Nie usuwamy światów bez Twojego polecenia.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Section("Wersje i pobieranie") {
                         Picker("Widoczne wersje", selection: $versionFilter) {
                             Text("Wszystkie").tag("all")
@@ -271,7 +286,7 @@ struct LauncherView: View {
                     .font(.title)
                     .foregroundStyle(.cyan)
                 Spacer()
-                Text("PREVIEW")
+                Text("NOVAENGINE")
                     .font(.caption2.bold())
                     .tracking(2)
                     .padding(.horizontal, 10)
@@ -325,6 +340,40 @@ struct LauncherView: View {
         .padding(12)
         .background(Color(uiColor: .secondarySystemGroupedBackground),
                     in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            NavigationLink {
+                NovaVoxelEngineScreen()
+            } label: {
+                VStack(alignment: .leading, spacing: 7) {
+                    Image(systemName: "cube.transparent.fill").font(.title3)
+                    Text("NovaEngine 3D").font(.subheadline.bold())
+                    Text("Własny świat voxel").font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(13)
+                .background(Color.cyan.opacity(0.10), in: RoundedRectangle(cornerRadius: 15))
+            }
+            NavigationLink {
+                NovaLibraryDashboard()
+            } label: {
+                VStack(alignment: .leading, spacing: 7) {
+                    Image(systemName: "folder.fill").font(.title3)
+                    Text("Biblioteka").font(.subheadline.bold())
+                    Text("Pliki i paczki").font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(13)
+                .background(Color(uiColor: .secondarySystemGroupedBackground),
+                            in: RoundedRectangle(cornerRadius: 15))
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.primary)
     }
 
     private var versionPanel: some View {
