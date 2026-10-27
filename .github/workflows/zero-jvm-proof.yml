@@ -1,0 +1,115 @@
+name: Build NovaCraft Zero VM Proof (no JIT)
+
+on:
+  push:
+    branches: [zero-jvm-proof]
+    paths:
+      - ".github/workflows/zero-jvm-proof.yml"
+      - "ZeroProbe/**"
+  workflow_dispatch:
+
+concurrency:
+  group: novacraft-zero-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ios-zero-proof:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout original NovaCraft Zero test
+        uses: actions/checkout@v4
+      - name: Install JDK 26 for compiling Java 21 bytecode
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "26"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Download checksum-pinned official OpenJDK Mobile Zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zero-openjdk" "$RUNNER_TEMP/zero-bundle"
+          curl --fail --location --retry 3 \
+            -o "$RUNNER_TEMP/OpenJDK.xcframework.zip" \
+            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/OpenJDK.xcframework.zip
+          curl --fail --location --retry 3 \
+            -o "$RUNNER_TEMP/java_bundle-device.zip" \
+            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/java_bundle-device.zip
+          echo "ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f  $RUNNER_TEMP/OpenJDK.xcframework.zip" | shasum -a 256 -c -
+          echo "37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a  $RUNNER_TEMP/java_bundle-device.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/OpenJDK.xcframework.zip" -d "$RUNNER_TEMP/zero-openjdk"
+          unzip -q "$RUNNER_TEMP/java_bundle-device.zip" -d "$RUNNER_TEMP/zero-bundle"
+          framework="$(find "$RUNNER_TEMP/zero-openjdk" -maxdepth 4 -type d -name OpenJDK.xcframework -print -quit)"
+          modules="$(find "$RUNNER_TEMP/zero-bundle" -maxdepth 5 -name modules -print -quit)"
+          test -n "$framework" && test -n "$modules"
+          mkdir -p ZeroProbe/Resources/lib/lib
+          ditto "$framework" ZeroProbe/OpenJDK.xcframework
+          ditto "$modules" ZeroProbe/Resources/lib/lib/modules
+          test -e ZeroProbe/Resources/lib/lib/modules
+      - name: Compile Java 21 smoke class
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/zero-java-classes" ZeroProbe/Resources
+          javac --release 21 -d "$RUNNER_TEMP/zero-java-classes" \
+            ZeroProbe/Java/dev/novacraft/zero/NovaZeroSmoke.java
+          javap -verbose "$RUNNER_TEMP/zero-java-classes/dev/novacraft/zero/NovaZeroSmoke.class" | grep -F 'major version: 65'
+          jar cf ZeroProbe/Resources/NovaZeroSmoke.jar -C "$RUNNER_TEMP/zero-java-classes" .
+          jar tf ZeroProbe/Resources/NovaZeroSmoke.jar | grep -F 'dev/novacraft/zero/NovaZeroSmoke.class'
+      - name: Build original unsigned Zero test iOS app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodegen generate --spec ZeroProbe/project.yml --project "$GITHUB_WORKSPACE"
+          xcodebuild -project NovaCraftZeroProbe.xcodeproj -scheme NovaCraftZeroProbe \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ZeroDerivedData" \
+            CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee "$RUNNER_TEMP/zero-compile.log"
+      - name: Verify real Zero test and create IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/ZeroDerivedData/Build/Products/Release-iphoneos/NovaCraftZeroProbe.app"
+          test -s "$APP/NovaCraftZeroProbe"
+          test -s "$APP/NovaZeroSmoke.jar"
+          test -e "$APP/lib/lib/modules"
+          ! find "$APP" -name libjvm.dylib | grep -q .
+          file "$APP/NovaCraftZeroProbe"
+          mkdir -p "$RUNNER_TEMP/ZeroPayload/Payload" dist
+          ditto "$APP" "$RUNNER_TEMP/ZeroPayload/Payload/NovaCraftZeroProbe.app"
+          (cd "$RUNNER_TEMP/ZeroPayload" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Zero-JVM-Probe-UNSIGNED.ipa" Payload)
+          python3 - <<'PY'
+          import plistlib, zipfile
+          with zipfile.ZipFile("dist/NovaCraft-Zero-JVM-Probe-UNSIGNED.ipa") as z:
+              assert z.testzip() is None
+              files = set(z.namelist())
+              base = "Payload/NovaCraftZeroProbe.app/"
+              assert base + "NovaCraftZeroProbe" in files
+              assert base + "NovaZeroSmoke.jar" in files
+              info = plistlib.loads(z.read(base + "Info.plist"))
+              assert info["CFBundleDisplayName"] == "NovaCraft Zero"
+              assert info["CFBundleIdentifier"] == "pl.novacraft.zero.probe"
+              assert not any("lib/server/libjvm.dylib" in f for f in files)
+              print("PASS: original Zero VM proof IPA (without HotSpot Server)")
+          PY
+      - name: Save Xcode errors if compilation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Zero-Probe-Compile-Log
+          path: ${{ runner.temp }}/zero-compile.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Publish unsigned Zero test IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Zero-JVM-Probe-UNSIGNED-IPA
+          path: dist/NovaCraft-Zero-JVM-Probe-UNSIGNED.ipa
+          retention-days: 14
+          if-no-files-found: error
