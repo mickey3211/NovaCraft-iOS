@@ -55,9 +55,11 @@ struct NovaEngineRuntime: MinecraftRuntime {
         // frames. Never occupy a Swift cooperative-concurrency worker thread.
         // Use one dedicated POSIX-backed NSThread with a predictable stack.
         let startTime = ProcessInfo.processInfo.systemUptime
+        let experimentalDirectJNI = UserDefaults.standard.bool(forKey: "novacraft-experimental-direct-jni")
         let code = await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
             let javaThread = Thread {
-                let result = NovaGameRunner.run(args, javaMajor: major)
+                let result = NovaGameRunner.run(args, javaMajor: major,
+                                                experimentalDirectJNI: experimentalDirectJNI)
                 continuation.resume(returning: result)
             }
             javaThread.name = "NovaCraft-Java-\(major)"
