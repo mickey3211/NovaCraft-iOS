@@ -14,6 +14,16 @@ uruchomić niezależny test silnika graficznego.
 
 ### Rozbudowa aplikacji (październik 2026)
 
+- **Pobieranie Minecraft w tle (iOS 17+):** systemowa sesja
+  `URLSessionConfiguration.background` z zapisywanym na dysku planem,
+  weryfikacją SHA-1 wszystkich pobranych plików, kolejką ograniczającą
+  liczbę połączeń, próbami ponownego pobrania oraz obsługą wznowienia
+  po ponownym otwarciu aplikacji i zdarzeń systemowego budzenia.
+  Manifest wersji i indeks assetów przygotowuje się przy otwartej
+  aplikacji, a duże pliki klienta, bibliotek i zasobów są pobierane w tle.
+  Postęp liczony jest według liczby **zweryfikowanych plików**. Transfery
+  mogą być opóźniane przez iOS, a wymuszone zamknięcie aplikacji może
+  je zatrzymać; nie ma gwarancji nieprzerwanego pobierania.
 - **Biblioteka NovaCraft:** podgląd lokalnej zajętości pamięci (gry,
   biblioteki, assety, światy), bezpieczny import paczek zasobów ZIP bez
   ich rozpakowywania lub wykonywania, eksport logów Java/HotSpot przez
