@@ -8,7 +8,6 @@ struct LauncherView: View {
     @AppStorage("version-filter") private var versionFilter = "all"
     @AppStorage("download-wifi-reminder") private var wifiReminder = true
     @AppStorage("prefer-dark-interface") private var preferDarkInterface = true
-    @AppStorage("novacraft-experimental-direct-jni") private var experimentalDirectJNI = false
     @AppStorage("novacraft-jvm-probe-only") private var jvmProbeOnly = false
     @State private var offlineNickname = ""
     @State private var serverName = ""
@@ -260,11 +259,11 @@ struct LauncherView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                         Toggle("Testuj tylko JVM (bez Minecrafta)", isOn: $jvmProbeOnly)
                             .disabled(state.busy)
-                        Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod NOVACRAFT_JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
+                        Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
                             .font(.footnote).foregroundStyle(.secondary)
-                        Toggle("Testuj start przez JNI zamiast JLI", isOn: $experimentalDirectJNI)
-                            .disabled(state.busy)
-                        Text("Tryb eksperymentalny: gdy JLI przerywa start na iOS, można porównać zachowanie bezpośredniego JNI_CreateJavaVM. Nie omija podpisu bibliotek ani ograniczeń JIT. Zmieniaj tryb tylko przed naciśnięciem Graj.")
+                        Label("Naprawiony start JVM: JNI_CreateJavaVM", systemImage: "checkmark.shield.fill")
+                            .foregroundStyle(.green)
+                        Text("NovaCraft używa teraz bezpośredniego JNI. Poprzednia metoda JLI mogła wywołać ponownie punkt startowy SwiftUI i zakończyć aplikację błędem AppGraph.shared. Uruchom Test JVM, aby sprawdzić następny etap.")
                             .font(.footnote).foregroundStyle(.secondary)
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
