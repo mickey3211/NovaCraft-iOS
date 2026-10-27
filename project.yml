@@ -13,7 +13,15 @@ targets:
     platform: iOS
     sources:
       - path: Native/NovaCraft
+      - path: ZeroIntegration/Resources/NovaZeroSmoke.jar
+        buildPhase: resources
+      - path: ZeroIntegration/Resources/lib
+        type: folder
+        buildPhase: resources
     dependencies:
+      - framework: ZeroIntegration/OpenJDK.xcframework
+        embed: false
+        link: true
       - sdk: libz.tbd
     settings:
       base:
@@ -29,3 +37,4 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CODE_SIGN_STYLE: Automatic
         OTHER_LDFLAGS: -lc++
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NOVA_ZERO_INTEGRATION"
