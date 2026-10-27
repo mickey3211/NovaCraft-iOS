@@ -132,9 +132,11 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
         (game_arg_count > 0 && !game_args) ||
         jvm_option_count < 0 || jvm_option_count > 128 ||
         (jvm_option_count > 0 && !jvm_options)) return -11;
-    // OpenJDK on iOS needs a coherent JAVA_HOME and the native JLI bootstrap
-    // dependency available to the dynamic loader before JNI_CreateJavaVM.
-    // Keep this initialized from the signed, bundled runtime only.
+    // JNI_CreateJavaVM is exported by lib/server/libjvm.dylib itself.
+    // The signed iOS ARM64 Mach-O dependency table for this Java 21 build
+    // lists libSystem, libc++ and CoreFoundation, NOT libjli.dylib.
+    // Do not preload JLI from the JNI path: it is a separate launcher
+    // interface and earlier launches could re-enter SwiftUI's @main.
     char java_home[PATH_MAX] = {0};
     const char *framework_marker = strstr(runtime_path, "/NovaJava21.framework/");
     if (framework_marker) {
@@ -144,21 +146,10 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
         memcpy(java_home, runtime_path, len);
         java_home[len] = 0;
         setenv("JAVA_HOME", java_home, 1);
-        char jli_path[PATH_MAX];
-        int n = snprintf(jli_path, sizeof(jli_path), "%s/lib/libjli.dylib", java_home);
-        if (n <= 0 || (size_t)n >= sizeof(jli_path)) return -26;
-        nova_checkpoint("Ładowanie Java Launcher Interface (libjli)");
-        if (access(jli_path, R_OK) == 0) {
-            void *jli = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
-            if (!jli) {
-                nova_checkpoint("Błąd ładowania libjli.dylib");
-                return -27;
-            }
-        } else {
-            nova_checkpoint("Brak libjli.dylib w Java 21");
-            return -28;
-        }
     }
+    nova_checkpoint("JNI: JAVA_HOME ustawiony; ładowanie wyłącznie libjvm.dylib");
+    fprintf(stderr, "[NovaCraft/JNI] Start native Java 21 without JLI preload.\n");
+    fflush(stderr);
     nova_checkpoint("Ładowanie biblioteki JVM (dlopen)");
     void *library = dlopen(runtime_path, RTLD_NOW | RTLD_LOCAL);
     if (!library) { nova_checkpoint_loader_failure("JNI: nie można załadować libjvm"); return -12; }
@@ -193,6 +184,10 @@ static int nova_jni_invoke_main_impl(const char *runtime_path,
     void *vm = NULL;
     void *env = NULL;
     nova_checkpoint("Tworzenie maszyny Java (JNI_CreateJavaVM)");
+    fprintf(stderr, "[NovaCraft/JNI] JNI_CreateJavaVM entered, options=%d, probe log in Documents.\n",
+            (int)init.nOptions);
+    fflush(stderr);
+    fsync(STDERR_FILENO);
     jint result = create(&vm, &env, &init);
     free(cp);
     free(np);
