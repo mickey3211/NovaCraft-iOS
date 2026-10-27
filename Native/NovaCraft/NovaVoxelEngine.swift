@@ -164,9 +164,13 @@ final class NovaVoxelRenderer: NSObject, MTKViewDelegate {
         guard let depthState = device.makeDepthStencilState(descriptor: depth) else { return nil }
 
         let vertices = NovaVoxelWorld.generate()
-        guard let mesh = device.makeBuffer(bytes: vertices,
-                                           length: MemoryLayout<NovaVoxelVertex>.stride * vertices.count,
-                                           options: .storageModeShared) else { return nil }
+        let generatedMesh = vertices.withUnsafeBufferPointer { buffer -> MTLBuffer? in
+            guard let data = buffer.baseAddress else { return nil }
+            return device.makeBuffer(bytes: data,
+                                     length: buffer.count * MemoryLayout<NovaVoxelVertex>.stride,
+                                     options: .storageModeShared)
+        }
+        guard let mesh = generatedMesh else { return nil }
         mesh.label = "NovaEngine visible voxel terrain"
         self.queue = queue
         self.pipeline = pipeline
