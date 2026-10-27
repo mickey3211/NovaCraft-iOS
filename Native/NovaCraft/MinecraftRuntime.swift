@@ -99,6 +99,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
         if runtimeSeconds < 10 {
             throw NovaEngineLaunchError.gameExitedImmediately(runtimeSeconds)
         }
+        #endif
     }
 
     private func invokeJava(_ arguments: NovaLaunchArguments, major: Int) async -> Int32 {
