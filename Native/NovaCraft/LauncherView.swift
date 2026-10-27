@@ -3,6 +3,7 @@ import GameController
 
 struct LauncherView: View {
     @EnvironmentObject private var state: LauncherState
+    @EnvironmentObject private var backgroundDownloads: NovaBackgroundDownloads
     @AppStorage("show-snapshots") private var showSnapshots = false
     @State private var selectedTab = 0
     @AppStorage("version-filter") private var versionFilter = "all"
@@ -276,6 +277,11 @@ struct LauncherView: View {
         }
         .tint(.cyan)
         .preferredColorScheme(preferDarkInterface ? .dark : .light)
+        .onReceive(NotificationCenter.default.publisher(for: .novaBackgroundDownloadFinished)) { notification in
+            if let version = notification.object as? String {
+                state.reflectBackgroundInstall(version)
+            }
+        }
     }
 
     private var hero: some View {
@@ -428,17 +434,48 @@ struct LauncherView: View {
                 .font(.headline)
 
             if state.busy {
-                if state.selectedInstalled {
-                    ProgressView()
-                    Text("Uruchamianie Minecraft Java…")
+                ProgressView()
+                Text(state.selectedInstalled
+                     ? "Uruchamianie Java 21…"
+                     : "Przygotowywanie listy plików do pobierania w tle…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let versionID = backgroundDownloads.snapshot.versionID {
+                let transfer = backgroundDownloads.snapshot
+                VStack(alignment: .leading, spacing: 9) {
+                    Label(transfer.finished ? "Pobieranie zakończone"
+                          : (transfer.isPaused ? "Pobieranie wymaga wznowienia"
+                             : "Pobieranie działa w tle"),
+                          systemImage: transfer.finished ? "checkmark.circle.fill"
+                            : transfer.isPaused ? "exclamationmark.triangle.fill"
+                            : "arrow.down.circle.fill")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(transfer.finished ? Color.green : Color.cyan)
+                    Text("Minecraft \(versionID) • \(transfer.completed) z \(transfer.total) plików")
+                        .font(.caption.monospacedDigit())
+                    ProgressView(value: transfer.progress)
+                    Text("\(Int(transfer.progress * 100))% plików sprawdzonych (SHA-1)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else {
-                    ProgressView(value: state.downloadProgress)
-                    Text("Przetwarzanie plików: \(Int(state.downloadProgress * 100))%")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                    if let error = transfer.error {
+                        Text(error).font(.caption).foregroundStyle(.orange)
+                    }
+                    if transfer.isPaused {
+                        Button("Wznów pobieranie") {
+                            backgroundDownloads.retryFailed()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    if transfer.isRunning {
+                        Text("Możesz zablokować ekran albo przejść do innej aplikacji. iOS sam zarządza transferami; po ponownym otwarciu zobaczysz aktualny stan.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .padding(12)
+                .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
             }
 
             Button {
@@ -452,20 +489,23 @@ struct LauncherView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: state.selectedInstalled ? "play.fill" : "arrow.down.circle.fill")
-                    Text(jvmProbeOnly ? "Test JVM" : "Graj")
+                    Text(state.selectedInstalled
+                         ? (jvmProbeOnly ? "Test JVM" : "Graj")
+                         : "Pobierz w tle")
                         .font(.title3.bold())
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(state.busy || state.selectedVersion.isEmpty)
+            .disabled(state.busy || state.selectedVersion.isEmpty ||
+                      (!state.selectedInstalled && backgroundDownloads.snapshot.isRunning))
             .accessibilityHint(state.selectedInstalled
                 ? "Próbuje uruchomić wybraną wersję Minecraft"
                 : "Najpierw pobiera pliki wybranej wersji Minecraft")
 
             if !state.selectedInstalled {
-                Text("Pierwsze naciśnięcie pobiera Minecraft. Po pobraniu naciśnij Graj ponownie.")
+                Text("Pobieranie plików działa w tle po przygotowaniu listy. Po pobraniu i sprawdzeniu wszystkich plików przycisk zmieni się na Graj.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
