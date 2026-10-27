@@ -199,6 +199,12 @@ struct LauncherView: View {
                     Section("Wygląd") {
                         Toggle("Ciemny wygląd", isOn: $preferDarkInterface)
                     }
+                    Section("O aplikacji") {
+                        LabeledContent("Projekt i marka", value: "mickey3211")
+                        LabeledContent("Silnik 3D", value: "NovaEngine / Metal")
+                        Text("Autorski kod NovaCraft nie korzysta z implementacji Amethyst. Zewnętrzne środowisko OpenJDK, biblioteki LWJGL i Minecraft pozostają własnością ich autorów i podlegają własnym licencjom.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     Section("Wersje i pobieranie") {
                         Picker("Widoczne wersje", selection: $versionFilter) {
                             Text("Wszystkie").tag("all")
@@ -208,7 +214,15 @@ struct LauncherView: View {
                         Text("Pliki Minecraft mogą zajmować dużo miejsca. Pobieranie wykorzystuje aktywne połączenie internetowe.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Section("NovaEngine") {
+                    Section("NovaEngine — autorski silnik 3D") {
+                        NavigationLink {
+                            NovaVoxelEngineScreen()
+                        } label: {
+                            Label("Uruchom autorski świat NovaEngine", systemImage: "square.3.layers.3d.top.filled")
+                                .foregroundStyle(.cyan)
+                        }
+                        Text("Własny renderer Metal, siatka voxel, widoczne ściany, perspektywa 3D, sterowanie dotykiem. To oddzielny prototyp, nie działający jeszcze Minecraft Java.")
+                            .font(.footnote).foregroundStyle(.secondary)
                         NavigationLink {
                             NovaMetalTestScreen()
                         } label: {
@@ -272,6 +286,9 @@ struct LauncherView: View {
             Text("NovaCraft • launcher Minecraft Java")
                 .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.75))
+            Text("Projekt i marka: mickey3211  •  NovaEngine: własny kod")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.6))
             HStack(spacing: 8) {
                 Image(systemName: "hammer.fill")
                 Text("Rozwój silnika trwa")
