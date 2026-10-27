@@ -3,17 +3,15 @@ import Foundation
 /// Invokes Minecraft's Java entrypoint when real signed iOS JVM and LWJGL
 /// libraries are embedded. No downloaded executable code is loaded on iOS.
 enum NovaGameRunner {
-    static func run(_ args: NovaLaunchArguments, javaMajor: Int) -> Int32 {
+    static func run(_ args: NovaLaunchArguments, javaMajor: Int, experimentalDirectJNI: Bool = false) -> Int32 {
         guard let library = NovaJavaRuntimeRegistry.frameworkURL(major: javaMajor) else { return -30 }
         let nativePath = Bundle.main.privateFrameworksURL?.path ?? ""
         let classpath = iosLWJGLClasspath(fallback: args.classpath)
         // Resolve JVM properties against the classpath that actually includes
         // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
         var jvmOptions = normalizeJVMOptions(args.jvmArguments)
-        if javaMajor == 21 {
-            let home = library.deletingLastPathComponent().path
-            jvmOptions.append("-Djava.home=\(home)")
-        }
+        // JLI derives java.home from the bundled executable path and JAVA_HOME.
+        // Explicit -Djava.home can interfere with locating OpenJDK runtime modules.
         // Keep JVM heap under iOS jetsam limits. The native JNI bridge
         // respects an explicit -Xmx option instead of adding a duplicate.
         let physicalGB = ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)
@@ -32,6 +30,12 @@ enum NovaGameRunner {
         // This does not provide a renderer; it only configures LWJGL's thread checks.
         jvmOptions.append("-Dorg.lwjgl.glfw.checkThread0=false")
         jvmOptions.append("-Dorg.lwjgl.system.allocator=system")
+        if experimentalDirectJNI {
+            // The direct Invocation API needs these iOS VM flags too; the
+            // JLI adapter normally adds them before calling JLI_Launch.
+            jvmOptions.append("-XX:+UnlockExperimentalVMOptions")
+            jvmOptions.append("-XX:+DisablePrimordialThreadGuardPages")
+        }
         // Minecraft must write settings, logs and world saves outside the
         // read-only application bundle. Match the game directory used by
         // official --gameDir arguments in NovaLaunchArgumentBuilder.
@@ -46,6 +50,10 @@ enum NovaGameRunner {
         // in Documents so it can be exported after reopening NovaCraft.
         if let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             jvmOptions.append("-XX:ErrorFile=\(documents.appendingPathComponent("NovaCraft-hs_err_pid%p.log").path)")
+            // HotSpot writes to this file independently of stdout/stderr.
+            // It may survive early JVM initialization crashes on iOS.
+            let bootLog = documents.appendingPathComponent("NovaCraft-hotspot-boot.log").path
+            jvmOptions.append("-Xlog:os=info:file=\(bootLog):uptime,level,tags:filecount=2,filesize=2M")
         }
 
         let gamePointers = args.gameArguments.map { strdup($0) }
@@ -65,7 +73,7 @@ enum NovaGameRunner {
                                 // OpenJDK Mobile iOS launchers use JLI_Launch instead of
                                 // calling JNI_CreateJavaVM directly. Prefer that
                                 // proven initialization route for our bundled Java 21.
-                                if javaMajor == 21 {
+                                if javaMajor == 21 && !experimentalDirectJNI {
                                     return nova_jli_launch_main(runtimePath, mainClass, classpath,
                                                                 nativeDir, vmBuffer.baseAddress,
                                                                 Int32(vmStrings.count),
