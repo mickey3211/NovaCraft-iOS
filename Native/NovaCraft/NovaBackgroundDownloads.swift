@@ -242,6 +242,15 @@ final class NovaBackgroundDownloads: NSObject, ObservableObject, URLSessionDownl
             }
         }
 
+        // A staged checksum failure may have paused the job in finishStaged.
+        // Never enqueue additional tasks after a fatal validation error.
+        if plan.isPaused {
+            self.plan = plan
+            try? savePlan()
+            publish()
+            return
+        }
+
         for i in plan.entries.indices {
             guard liveIDs.count < maximumActiveTasks else { break }
             guard plan.entries[i].state == .queued else { continue }
