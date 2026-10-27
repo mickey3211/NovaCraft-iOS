@@ -37,14 +37,12 @@ enum NovaGameRunner {
             let home = library.deletingLastPathComponent().path
             jvmOptions.append("-Djava.home=\(home)")
         }
-        // Keep JVM heap under iOS jetsam limits. The native JNI bridge
-        // respects an explicit -Xmx option instead of adding a duplicate.
-        let physicalGB = ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)
-        let heapMB = physicalGB >= 6 ? 1536 : (physicalGB >= 4 ? 1024 : 768)
-        // iOS code-signing often disallows JIT executable pages. During
-        // bootstrap testing force HotSpot's interpreter and a modest heap.
+        // User-controlled memory budget (384…1024 MB on 4 GB devices).
+        // Clamp by physical RAM to reduce iOS jetsam termination risk.
+        // This does not enable JIT or change Java/LWJGL compatibility.
+        let heapMB = NovaPerformance.heapMB
         jvmOptions.removeAll { $0.hasPrefix("-Xmx") || $0 == "-Xint" }
-        jvmOptions.append("-Xmx\(min(heapMB, 768))m")
+        jvmOptions.append("-Xmx\(heapMB)m")
         jvmOptions.append("-Xint")
         jvmOptions.append("-XX:+UseSerialGC")
         jvmOptions.append("-XX:-UsePerfData")
