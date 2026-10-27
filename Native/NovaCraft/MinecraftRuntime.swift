@@ -23,6 +23,27 @@ struct NovaEngineRuntime: MinecraftRuntime {
     }
 
     func launch(version: String, account: MinecraftAccount?, offlineNickname: String?) async throws {
+        // The pure VM test must be possible without downloading Minecraft,
+        // signing in to Microsoft, loading LWJGL or having an offline profile.
+        if UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") {
+            guard let java = NovaJavaRuntimeRegistry.frameworkURL(major: 21),
+                  FileManager.default.fileExists(atPath: java.path),
+                  FileManager.default.fileExists(atPath:
+                    Bundle.main.bundleURL.appendingPathComponent("NovaBootstrap/novacraft-bootstrap.jar").path)
+            else {
+                throw NovaEngineLaunchError.missingJavaAndRenderer("Brak kompletnej Java 21 albo klasy diagnostycznej w IPA.")
+            }
+            let minimal = NovaLaunchArguments(
+                mainClass: "dev.novacraft.GameEntrypoint",
+                classpath: "",
+                gameArguments: [],
+                jvmArguments: [],
+                javaMajor: 21,
+                assetsIndexID: "probe")
+            let result = await invokeJava(minimal, major: 21)
+            guard result == 0 else { throw NovaEngineLaunchError.jvmFailure(result) }
+            return
+        }
         let plan = try inspect(version: version)
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
             throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
@@ -57,16 +78,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
         let startTime = ProcessInfo.processInfo.systemUptime
         // JNI_CreateJavaVM avoids the Apple JLI main() re-entry which killed
         // the SwiftUI AppGraph before Java had run its entrypoint.
-        let code = await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
-            let javaThread = Thread {
-                let result = NovaGameRunner.run(args, javaMajor: major)
-                continuation.resume(returning: result)
-            }
-            javaThread.name = "NovaCraft-Java-\(major)"
-            javaThread.stackSize = 16 * 1024 * 1024
-            javaThread.qualityOfService = .userInitiated
-            javaThread.start()
-        }
+        let code = await invokeJava(args, major: major)
         guard code == 0 else { throw NovaEngineLaunchError.jvmFailure(code) }
         // Probe mode runs only the bundled Java bootstrap. The JVM cannot be
         // restarted in the same process; users must relaunch NovaCraft before
@@ -75,6 +87,19 @@ struct NovaEngineRuntime: MinecraftRuntime {
         let runtimeSeconds = ProcessInfo.processInfo.systemUptime - startTime
         if runtimeSeconds < 10 {
             throw NovaEngineLaunchError.gameExitedImmediately(runtimeSeconds)
+        }
+    }
+
+    private func invokeJava(_ arguments: NovaLaunchArguments, major: Int) async -> Int32 {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
+            let javaThread = Thread {
+                let result = NovaGameRunner.run(arguments, javaMajor: major)
+                continuation.resume(returning: result)
+            }
+            javaThread.name = "NovaCraft-Java-\(major)"
+            javaThread.stackSize = 16 * 1024 * 1024
+            javaThread.qualityOfService = .userInitiated
+            javaThread.start()
         }
     }
 }
