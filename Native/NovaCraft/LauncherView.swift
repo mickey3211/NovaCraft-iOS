@@ -8,6 +8,7 @@ struct LauncherView: View {
     @AppStorage("version-filter") private var versionFilter = "all"
     @AppStorage("download-wifi-reminder") private var wifiReminder = true
     @AppStorage("prefer-dark-interface") private var preferDarkInterface = true
+    @AppStorage("novacraft-experimental-direct-jni") private var experimentalDirectJNI = false
     @State private var offlineNickname = ""
     @State private var serverName = ""
     @State private var serverAddress = ""
@@ -226,6 +227,10 @@ struct LauncherView: View {
                             Label("Sprawdź biblioteki Java 21", systemImage: "cpu")
                         }
                         Text("Bezpieczny test ładowania libjli i libjvm. Nie uruchamia drugiej maszyny Java ani gry. Wynik znajdziesz na karcie Start.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                        Toggle("Testuj start przez JNI zamiast JLI", isOn: $experimentalDirectJNI)
+                            .disabled(state.busy)
+                        Text("Tryb eksperymentalny: gdy JLI przerywa start na iOS, można porównać zachowanie bezpośredniego JNI_CreateJavaVM. Nie omija podpisu bibliotek ani ograniczeń JIT. Zmieniaj tryb tylko przed naciśnięciem Graj.")
                             .font(.footnote).foregroundStyle(.secondary)
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
@@ -467,6 +472,22 @@ struct LauncherView: View {
                     UIPasteboard.general.string = report
                 } label: {
                     Label("Kopiuj raport JVM", systemImage: "doc.on.doc")
+                }
+                .font(.footnote)
+            }
+            if let output = state.lastHotspotBootLog, !output.isEmpty {
+                DisclosureGroup("Dziennik startowy JVM (HotSpot)") {
+                    Text(output)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button {
+                        UIPasteboard.general.string = output
+                    } label: {
+                        Label("Kopiuj dziennik HotSpot", systemImage: "doc.on.doc")
+                    }
+                    Text("Sprawdź i usuń prywatne dane przed przesłaniem logu.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
                 .font(.footnote)
             }
