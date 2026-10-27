@@ -1,0 +1,39 @@
+# Local signing and developer secrets — NEVER commit
+.env
+.env.*
+!.env.example
+!.env.sample
+*.p12
+*.p8
+*.mobileprovision
+*.provisionprofile
+*.key
+*.pem
+*.keystore
+*.jks
+secrets/
+credentials/
+private-keys/
+
+# Built and vendored products (original upstream licenses still apply)
+dist/
+build/
+DerivedData/
+Vendor/
+*.ipa
+*.app/
+*.xcarchive/
+*.dSYM/
+*.dylib
+*.a
+
+# Generated project files and macOS/IDE state
+NovaCraft.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+.swiftpm/
+.build/
+.DS_Store
+__pycache__/
+*.pyc
+*.log
