@@ -118,9 +118,12 @@ jobs:
           "$RUNNER_TEMP/novacraft-icon-venv/bin/python" -m pip install pillow
           "$RUNNER_TEMP/novacraft-icon-venv/bin/python" scripts/generate-app-icon.py
           xcodegen generate
+          mkdir -p "$RUNNER_TEMP/novacraft-build-logs"
+          # Preserve full Xcode errors for failed runs, not only the Actions UI tail.
           xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" CODE_SIGNING_ALLOWED=NO build
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee "$RUNNER_TEMP/novacraft-build-logs/xcodebuild.log"
           APP="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
           bash scripts/package-java-runtime.sh "$APP"
           bash scripts/package-upstream-lwjgl-ios.sh "$APP"
@@ -133,6 +136,15 @@ jobs:
           cd "$RUNNER_TEMP/integrated-ipa"
           zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa" Payload
           test -s "$GITHUB_WORKSPACE/dist/NovaCraft-Java21-LWJGL-UNSIGNED.ipa"
+
+      - name: Publish Xcode error log if the iOS build fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Xcode-failure-log
+          path: ${{ runner.temp }}/novacraft-build-logs/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
