@@ -77,3 +77,78 @@ launcherów lub ich kodu bez stosowania ich licencji.
 Nawet sprawna JVM nie uruchomi poprawnie Minecraft Java, dopóki
 NovaCraft nie otrzyma pełnej, zgodnej z Minecraftem obsługi
 GLFW/OpenGL i renderowania na iOS.
+
+
+## Test z 27/28 października 2026 — Build 15 (iPhone 13 / iOS 27.0.1)
+
+Zebrany przez użytkownika dziennik natywnej JVM daje mocniejszy,
+aczkolwiek nadal niepełny punkt zaczepienia:
+
+- Test `-Dnovacraft.jvmProbeOnly=true`: **tak** — brak klienta Minecraft,
+  assetów, LWJGL i zależności Minecraft w classpath.
+- `-Xmx256m`, `-Xms32m`, `-XX:ReservedCodeCacheSize=32m`,
+  `-XX:-UseCompressedOops`, `-XX:-UseCompressedClassPointers`,
+  `-Xint`, `-XX:+UseSerialGC`.
+- `libjava.dylib`: `shared library load ... was successful`.
+- `Compressed Oops: Disabled`; `Heap Max Capacity: 256M`.
+- `VM Periodic Task Thread` rozpoczęty po ok. 17 ms.
+- `VM Thread` rozpoczęty po ok. 42 ms.
+- Log kończy się około 43 ms; w oddzielnym stdout widnieje
+  `JNI_CreateJavaVM entered, options=21`.
+- Ostatni checkpoint: `Tworzenie maszyny Java (JNI_CreateJavaVM)`.
+- **Nie ma** `JVM_ENTRY_REACHED`, `JVM_PROBE_OK` ani
+  `NovaCraft-hs_err_pid*.log` w przekazanym raporcie.
+
+**Wniosek:** awaria następuje podczas *natywnego tworzenia JVM*,
+a nie pobierania Minecrafta, sprawdzania jego licencji, alokacji
+wielkiej sterty, rozwiązywania bibliotek LWJGL czy wykonywania bytecode
+Java. Nie ma podstaw, aby ponownie przeprojektowywać system pobierania
+lub zwiększać pamięć. Jest za wcześnie, aby wskazać JIT jako
+potwierdzoną przyczynę — brakuje sygnału iOS i stack trace.
+
+### Pilnie potrzebny dowód: iOS .ips
+
+Na iPhonie: **Ustawienia → Prywatność i ochrona → Analizy i
+ulepszenia → Dane analiz**; znajdź raport `NovaCraft-...`
+lub `JetsamEvent-...` odpowiadający godzinie zamknięcia aplikacji.
+Otwórz go i przez **Udostępnij** zapisz do aplikacji Pliki.
+Przed wysłaniem usuń dane prywatne (ścieżki, identyfikatory, tokeny).
+Najbardziej istotne pola:
+
+- `exception.type`, `exception.subtype`, `termination.reason` i `signal`;
+- `faultingThread`, `triggeredThread`, `threads[*].frames`;
+- `usedImages` oraz informacje o `libjvm.dylib` i `libsystem_pthread.dylib`;
+- w przypadku `JetsamEvent` — `reason`, `pageSize`,
+  `rpages`, `states`, `limit`.
+
+Jeśli nie ma raportu `hs_err`, system może zatrzymać proces bez
+możliwości zakończenia procedury fatal error w HotSpot — dlatego log
+HotSpot może urywać się na rozpoczęciu `VM Thread`, a nie w miejscu
+rzeczywistego błędu.
+
+### Wariant Zero JVM jako odrębny projekt
+
+Projekt OpenJDK Mobile wyjaśnia, że dla **iOS domyślne
+JVM to Zero**. To wariant bez klasycznego JIT, natomiast obecna
+`lib/server/libjvm.dylib` NovaCraft jest **Server VM**.
+`-Xint` nie zamienia pliku binarnego Server VM w Zero.
+
+OpenJDK Mobile publikuje wskazówki budowania biblioteki
+`lib/zero/libjvm.a` z kodu źródłowego. To statyczna biblioteka
+wymagająca właściwej integracji z aplikacją i dopasowanych klas
+Java; **nie należy jej bezpośrednio podmieniać** za istniejącą
+`lib/server/libjvm.dylib` innej wersji JDK. W październiku 2026
+oficjalne workflow `openjdk-mobile/ios-tools` buduje nowszy JDK,
+więc nie jest automatycznym zamiennikiem 21.0.8 używanego
+przez Minecraft 1.21.5.
+
+Źródła:
+- https://github.com/openjdk/mobile
+- https://github.com/openjdk-mobile/ios-tools/blob/main/.github/workflows/build-openjdk.yml
+- https://github.com/AngelAuraMC/Amethyst-iOS/issues/255
+
+**Zasada dalszej naprawy:** dopóki `JVM_PROBE_OK` nie pojawia się w
+minimalnym teście, nie można zapewniać użytkownika, że nowy IPA
+uruchomi Minecraft. Najpierw odczytaj `.ips`, następnie wybierz
+kompatybilny runtime / napraw natywną awarię, a dopiero potem
+integruj GLFW/OpenGL.
