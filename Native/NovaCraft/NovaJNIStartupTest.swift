@@ -13,13 +13,12 @@ enum NovaJNIStartupTest {
         }
         let javaHome = framework.deletingLastPathComponent()
         let fm = FileManager.default
-        let launcher = javaHome.appendingPathComponent("bin/java")
+        // The Java CLI executable is optional for the embedded iOS JLI path.
         let jli = javaHome.appendingPathComponent("lib/libjli.dylib")
         let vm = javaHome.appendingPathComponent("lib/server/libjvm.dylib")
         let release = javaHome.appendingPathComponent("release")
 
-        for (label, path) in [("bin/java", launcher),
-                              ("lib/libjli.dylib", jli),
+        for (label, path) in [("lib/libjli.dylib", jli),
                               ("lib/server/libjvm.dylib", vm),
                               ("release", release)] {
             guard fm.fileExists(atPath: path.path) else {
