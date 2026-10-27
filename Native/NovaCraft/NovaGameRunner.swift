@@ -33,7 +33,7 @@ enum NovaGameRunner {
         // JLI derives java.home from its bundled launcher path; do not
         // override it there. The direct Invocation API, however, does not
         // perform JLI path discovery and needs the explicit Java home.
-        if javaMajor == 21 && experimentalDirectJNI {
+        if javaMajor == 21 {
             let home = library.deletingLastPathComponent().path
             jvmOptions.append("-Djava.home=\(home)")
         }
@@ -96,16 +96,7 @@ enum NovaGameRunner {
                     entrypoint.withCString { mainClass in
                         classpath.withCString { classpath in
                             nativePath.withCString { nativeDir in
-                                // OpenJDK Mobile iOS launchers use JLI_Launch instead of
-                                // calling JNI_CreateJavaVM directly. Prefer that
-                                // proven initialization route for our bundled Java 21.
-                                if javaMajor == 21 && !experimentalDirectJNI {
-                                    return nova_jli_launch_main(runtimePath, mainClass, classpath,
-                                                                nativeDir, vmBuffer.baseAddress,
-                                                                Int32(vmStrings.count),
-                                                                gameBuffer.baseAddress,
-                                                                Int32(gameStrings.count))
-                                }
+                                // Direct JNI avoids restarting SwiftUI's app entrypoint.
                                 return nova_jni_invoke_main(runtimePath, mainClass, classpath,
                                                             nativeDir, vmBuffer.baseAddress,
                                                             Int32(vmStrings.count),
