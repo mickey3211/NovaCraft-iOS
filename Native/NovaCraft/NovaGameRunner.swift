@@ -3,12 +3,12 @@ import Foundation
 /// Invokes Minecraft's Java entrypoint when real signed iOS JVM and LWJGL
 /// libraries are embedded. No downloaded executable code is loaded on iOS.
 enum NovaGameRunner {
-    static func run(_ args: NovaLaunchArguments, javaMajor: Int, experimentalDirectJNI: Bool = false) -> Int32 {
+    static func run(_ args: NovaLaunchArguments, javaMajor: Int) -> Int32 {
         guard let library = NovaJavaRuntimeRegistry.frameworkURL(major: javaMajor) else { return -30 }
         // For JNI_CreateJavaVM the actual libjvm inside JAVA_HOME is more
         // reliable than the framework's extra entrypoint copy. The JLI path
         // continues to use the conventional framework entrypoint for discovery.
-        let runtimePath = javaMajor == 21 && experimentalDirectJNI
+        let runtimePath = javaMajor == 21
             ? library.deletingLastPathComponent()
                 .appendingPathComponent("lib/server/libjvm.dylib").path
             : library.path
@@ -56,7 +56,7 @@ enum NovaGameRunner {
         if javaMajor == 21 && UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") {
             jvmOptions.append("-Dnovacraft.jvmProbeOnly=true")
         }
-        if experimentalDirectJNI {
+        if javaMajor == 21 {
             // The direct Invocation API needs these iOS VM flags too; the
             // JLI adapter normally adds them before calling JLI_Launch.
             jvmOptions.append("-XX:+UnlockExperimentalVMOptions")
