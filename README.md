@@ -1,47 +1,81 @@
-# NovaCraft Launcher — iOS prototype
+# NovaCraft iOS — Minecraft Java Launcher (wersja eksperymentalna)
 
-An independent, from-scratch **Minecraft Java launcher UI prototype** built for mobile Safari on iPhone.
+**NovaCraft** to niezależny projekt launchera Minecraft Java Edition na iPhone'a
+i iPada. Aplikacja jest rozwijana w SwiftUI, z obsługą instalacji plików gry,
+wersji Minecraft, logowania Microsoft i eksperymentalnego uruchamiania Java 21
+oraz LWJGL na iOS.
 
-## Native iOS implementation
+> **Stan projektu:** prototyp / eksperymentalny silnik. Udana kompilacja IPA
+> **nie** potwierdza, że Minecraft uruchomi się i będzie grywalny. Nadal
+> potrzebna jest pełna integracja wyświetlania grafiki, natywnych bibliotek,
+> sterowania i uprawnień iOS/JIT lub odpowiedniego trybu bez JIT.
 
-The repository now contains a native SwiftUI app foundation under `Native/NovaCraft`, an XcodeGen `project.yml`, a manually triggered simulator build workflow and setup instructions in [docs/NATIVE_SETUP.md](docs/NATIVE_SETUP.md). It is **source code, not a built IPA or a working Java runtime**. Microsoft login needs an app registration and has not been tested on device. The installer currently downloads the verified client JAR and version JSON only, not the full game assets/libraries.
+## Prawa autorskie — Original code: ALL RIGHTS RESERVED
 
-## Status
+**Copyright (c) 2026 mickey3211. Wszelkie prawa zastrzeżone.**
 
-- [x] Mobile-friendly launcher interface
-- [x] Official Minecraft version manifest (releases and snapshots)
-- [x] Local profiles and settings
-- [x] Version search and selection
-- [x] Draggable, editable touchscreen control layout (local demo)
-- [x] Gamepad detection using Gamepad API and keyboard/mouse input tester (browser support varies)
-- [x] Saved multiplayer server favorites and copy-address action (not game connections)
-- [x] Microsoft account UI explaining planned secure OAuth, without collecting credentials
-- [x] Status and activity log
-- [x] Native SwiftUI app source scaffold (not compiled or signed)
-- [x] Partial Minecraft installer: verified client JAR + version JSON
-- [x] Microsoft OAuth PKCE/Xbox/XSTS/entitlement code (configuration and testing required)
-- [x] Native GameController input adapter and touch overlay (not connected to Java)
-- [ ] Complete Minecraft game file installer
-- [ ] Microsoft OAuth login and Minecraft entitlement check (NOT YET AVAILABLE)
-- [ ] Signed, tested native iOS IPA
-- [ ] Java runtime, graphics bridge and touch input
-- [ ] Launching Minecraft Java on iOS
-- [ ] Actual gameplay input integration and multiplayer connections
+Kod NovaCraft jest udostępniony do wglądu, a **nie jako otwarte
+oprogramowanie na licencji MIT lub innej licencji zezwalającej na jego
+ponowne wykorzystanie.**
 
-**Important:** This repository is currently a web UI prototype, **not** a functional Minecraft Java runtime. Clicking Play explains what remains to be implemented. Touch controls, external input and server management are UI-level demonstrations and do not control Minecraft. Running Minecraft Java on iOS has significant technical and platform restrictions (JVM/JIT, graphics and signing). It is not guaranteed to work on iOS 27.
+Bez wcześniejszej pisemnej zgody właściwego właściciela praw autorskich
+**nie udziela się zezwolenia** na:
 
-## Run
+- kopiowanie, przerabianie lub rozpowszechnianie oryginalnego kodu NovaCraft;
+- używanie oryginalnego kodu NovaCraft do tworzenia innych launcherów,
+  w tym własnych wersji Minecraft launcherów;
+- sprzedaż lub sublicencjonowanie oryginalnych fragmentów projektu.
 
-Open `index.html` in a browser or host it on any static HTTPS host. Version lists require network access to `piston-meta.mojang.com`.
+Sama publiczna dostępność repozytorium nie jest licencją na ponowne
+wykorzystanie kodu. **GitHub nadal pozwala użytkownikom oglądać i forkować
+publiczne repozytoria na zasadach swojej usługi**, a prawa wynikające
+z obowiązującego prawa i wcześniejszych ważnych licencji pozostają nienaruszone.
+Nie ma technicznego sposobu, aby całkowicie zablokować pobieranie
+kodu z publicznego repozytorium.
 
-On an iPhone, you can use Safari's Share → Add to Home Screen after hosting the page.
+Dokładne informacje: **[LICENSE](LICENSE)**.
 
-## Project layout
+**Uwaga:** ten zakaz dotyczy wyłącznie oryginalnego kodu i materiałów,
+do których przysługują odpowiednie prawa. Nie obejmuje obcych bibliotek
+ani kodu już udostępnionego na innych licencjach.
+**[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)** opisuje m.in.
+OpenJDK i LWJGL. Jeśli chcesz skorzystać z oryginalnego kodu NovaCraft,
+skontaktuj się z właścicielem repozytorium i uzyskaj pisemną zgodę.
 
-- `index.html` — standalone responsive prototype (HTML/CSS/JS)
-- `docs/ARCHITECTURE.md` — intended native launcher architecture and milestones
-- `LICENSE` — MIT license for this project's original source code
+## Co zawiera projekt?
 
-## Security
+- Aplikację SwiftUI z interfejsem startowym, listą wersji i profilami.
+- Mechanizm pobierania i weryfikowania plików Minecraft.
+- Kod OAuth Microsoft/Minecraft (wymagający własnej konfiguracji i testów).
+- Przygotowanie uruchamiania Java 21 i bibliotek LWJGL dla iOS.
+- Raporty diagnostyczne startu JVM i błędów po naciśnięciu **Graj**.
+- Eksperymentalne ekrany testowe Metal i sterowania dotykowego.
+- Proces tworzenia niepodpisanego IPA w Codemagic.
 
-No Minecraft credentials or Microsoft tokens are requested or stored. Settings are saved only to localStorage. Minecraft is owned by Mojang/Microsoft; this project is not affiliated with them.
+## Kompilacja
+
+**Za darmo na macOS w chmurze:**
+[Instrukcja Codemagic](docs/CODEMAGIC-DARMOWE-IPA.md).
+Konfiguracja znajduje się w pliku `codemagic.yaml`. Powstały IPA jest
+**niepodpisany**. Przed instalacją na iPhonie wszystkie zagnieżdżone
+frameworki i biblioteki natywne muszą otrzymać prawidłowy podpis.
+
+Dokumentacja szczegółowa:
+- [Architektura](docs/ARCHITECTURE.md)
+- [Diagnostyka awarii Java na iPhonie](docs/IPHONE-JVM-CRASH-DIAGNOSTICS.md)
+- [Informacje o bibliotekach zewnętrznych](THIRD_PARTY_NOTICES.md)
+- [Lista kontroli przed upublicznieniem](docs/PUBLICATION_CHECKLIST.md)
+
+## Informacje prawne
+
+NovaCraft nie jest oficjalnym produktem Minecraft, Mojang, Microsoft ani
+Apple. Znak Minecraft i pliki gry należą do ich właścicieli. Korzystanie
+z gry wymaga przestrzegania jej warunków i odpowiednich uprawnień do konta.
+
+**English:** The original NovaCraft source is *source-available for inspection,
+not open-source licensed*. All rights are reserved. No permission is granted
+to copy, modify, redistribute, sublicense, or incorporate original NovaCraft
+code into another launcher without written permission, subject to applicable
+law, GitHub's Terms of Service, existing valid grants, and third-party
+licenses. See [LICENSE](LICENSE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
