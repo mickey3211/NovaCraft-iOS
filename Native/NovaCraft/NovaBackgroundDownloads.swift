@@ -70,7 +70,9 @@ final class NovaBackgroundDownloads: NSObject, ObservableObject, URLSessionDownl
 
     private let worker = DispatchQueue(label: "pl.novacraft.backgrounddownloads.disk", qos: .utility)
     private let fm = FileManager.default
-    private let maximumActiveTasks = 48
+    // Keep a modest pool of OS-managed tasks queued before iOS suspends us.
+    // The actual concurrent HTTPS connections remain limited separately.
+    private let maximumActiveTasks = 128
     private var plan: NovaBackgroundPlan?
     private var liveIDs = Set<String>()
     private var isReconciled = false
