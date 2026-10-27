@@ -118,7 +118,7 @@ typedef void (*DeleteLocalRef)(void *, jobject);
 static int already_started = 0;
 static void *retained_library = NULL;
 
-int nova_jni_invoke_main(const char *runtime_path,
+static int nova_jni_invoke_main_impl(const char *runtime_path,
                          const char *main_class,
                          const char *classpath,
                          const char *native_path,
@@ -128,7 +128,8 @@ int nova_jni_invoke_main(const char *runtime_path,
                          int game_arg_count) {
     if (already_started) return -10; // A JVM cannot safely be restarted in process.
     if (!runtime_path || !main_class || !classpath || !native_path ||
-        !game_args || game_arg_count < 0 || game_arg_count > 1024 ||
+        game_arg_count < 0 || game_arg_count > 1024 ||
+        (game_arg_count > 0 && !game_args) ||
         jvm_option_count < 0 || jvm_option_count > 128 ||
         (jvm_option_count > 0 && !jvm_options)) return -11;
     // OpenJDK on iOS needs a coherent JAVA_HOME and the native JLI bootstrap
@@ -267,6 +268,26 @@ int nova_jni_invoke_main(const char *runtime_path,
     }
     nova_checkpoint("Minecraft main() zakończyła działanie");
     return 0;
+}
+
+
+
+int nova_jni_invoke_main(const char *runtime_path,
+                         const char *main_class,
+                         const char *classpath,
+                         const char *native_path,
+                         const char * const *jvm_options,
+                         int jvm_option_count,
+                         const char * const *game_args,
+                         int game_arg_count) {
+    int saved_stdout = -1, saved_stderr = -1;
+    nova_begin_java_log(&saved_stdout, &saved_stderr);
+    nova_checkpoint("JNI: start alternatywnej ścieżki JNI_CreateJavaVM");
+    int result = nova_jni_invoke_main_impl(runtime_path, main_class, classpath,
+                                           native_path, jvm_options, jvm_option_count,
+                                           game_args, game_arg_count);
+    nova_end_java_log(saved_stdout, saved_stderr, result);
+    return result;
 }
 
 
