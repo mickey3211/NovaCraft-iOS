@@ -11,6 +11,29 @@ Otwórz **Ustawienia → Uruchom autorski świat NovaEngine**, żeby
 uruchomić niezależny test silnika graficznego.
 
 [Architektura własnego NovaEngine](docs/NOVAENGINE-ORIGINAL.md).
+
+### Rozbudowa aplikacji (październik 2026)
+
+- **Biblioteka NovaCraft:** podgląd lokalnej zajętości pamięci (gry,
+  biblioteki, assety, światy), bezpieczny import paczek zasobów ZIP bez
+  ich rozpakowywania lub wykonywania, eksport logów Java/HotSpot przez
+  standardowy arkusz udostępniania i czyszczenie wyłącznie diagnostyki.
+- **Wydajność:** konfigurowalny limit pamięci `-Xmx` (384–1024 MB
+  lub do 1536 MB na urządzeniach z większą ilością RAM), 20/30/45/60
+  FPS podglądu Metal i rozmiar terenu 24–48 kolumn.
+- **NovaEngine 3D:** powtarzalne generowanie terenu za pomocą seeda,
+  trzy oryginalne palety (neon/las/lawa), rysowanie tylko widocznych
+  ścian, bufor głębi, obracanie i przybliżanie gestami.
+- **Start:** szybkie skróty do świata NovaEngine oraz biblioteki.
+- **Bezpieczeństwo:** import paczek ograniczony do .zip <=256 MB;
+  pliki .jar lub dylib nie są instalowane jako mody.
+
+**Rozmiar IPA nie jest miarą kompatybilności:** 55–60 MB
+skompresowanego NovaCraft zawiera około 160 MB plików po rozpakowaniu.
+Większy IPA Amethyst ma dodatkowe zewnętrzne środowiska Java i renderery.
+Nie kopiujemy ich kodu do autorskiego silnika NovaEngine; dodatkowe
+funkcje uruchamiania Minecraft Java wciąż wymagają implementacji.
+
 Kod tego silnika nie jest kopią Amethyst ani jego portem.
 
 > **Stan projektu:** prototyp / eksperymentalny silnik. Udana kompilacja IPA
