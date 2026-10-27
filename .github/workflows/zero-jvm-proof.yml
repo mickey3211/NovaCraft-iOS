@@ -65,8 +65,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          xcodegen generate --spec ZeroProbe/project.yml --project "$GITHUB_WORKSPACE"
-          xcodebuild -project NovaCraftZeroProbe.xcodeproj -scheme NovaCraftZeroProbe \
+          xcodegen generate --spec ZeroProbe/project.yml --project "$GITHUB_WORKSPACE/ZeroProbe"
+          xcodebuild -project ZeroProbe/NovaCraftZeroProbe.xcodeproj -scheme NovaCraftZeroProbe \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath "$RUNNER_TEMP/ZeroDerivedData" \
             CODE_SIGNING_ALLOWED=NO build \
