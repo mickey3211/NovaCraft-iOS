@@ -1,0 +1,35 @@
+name: NovaCraftZeroProbe
+options:
+  bundleIdPrefix: pl.novacraft
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  NovaCraftZeroProbe:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: ZeroProbe/Source
+      - path: ZeroProbe/Resources/NovaZeroSmoke.jar
+        buildPhase: resources
+      - path: ZeroProbe/Resources/lib
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - framework: ZeroProbe/OpenJDK.xcframework
+        embed: false
+        link: true
+      - sdk: libz.tbd
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: pl.novacraft.zero.probe
+        PRODUCT_NAME: NovaCraftZeroProbe
+        INFOPLIST_FILE: ZeroProbe/Source/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: 1
+        OTHER_LDFLAGS:
+          - "$(inherited)"
+          - "-lc++"
+        ENABLE_BITCODE: NO
+        CODE_SIGNING_ALLOWED: NO
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
