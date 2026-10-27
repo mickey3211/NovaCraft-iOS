@@ -55,17 +55,11 @@ struct NovaEngineRuntime: MinecraftRuntime {
         // frames. Never occupy a Swift cooperative-concurrency worker thread.
         // Use one dedicated POSIX-backed NSThread with a predictable stack.
         let startTime = ProcessInfo.processInfo.systemUptime
-        // IMPORTANT (iOS): OpenJDK's macOS JLI_Launch implementation can
-        // resolve and invoke the process-wide main() again via dlsym.
-        // For a SwiftUI @main application this re-enters the SwiftUI AppGraph,
-        // causing "AppGraph.shared may only be set once!" and a fatal abort.
-        // Always launch bundled Java 21 directly using JNI_CreateJavaVM.
-        // The old JLI preference is intentionally ignored for Java 21.
-        let useDirectJNI = major == 21
+        // JNI_CreateJavaVM avoids the Apple JLI main() re-entry which killed
+        // the SwiftUI AppGraph before Java had run its entrypoint.
         let code = await withCheckedContinuation { (continuation: CheckedContinuation<Int32, Never>) in
             let javaThread = Thread {
-                let result = NovaGameRunner.run(args, javaMajor: major,
-                                                experimentalDirectJNI: useDirectJNI)
+                let result = NovaGameRunner.run(args, javaMajor: major)
                 continuation.resume(returning: result)
             }
             javaThread.name = "NovaCraft-Java-\(major)"
