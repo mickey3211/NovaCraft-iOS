@@ -398,7 +398,7 @@ struct LauncherView: View {
             if !state.message.isEmpty {
                 Label(state.message, systemImage: state.lastCrashStage != nil ? "exclamationmark.triangle" : "info.circle")
                     .font(.footnote)
-                    .foregroundStyle(state.lastCrashStage != nil ? .orange : .secondary)
+                    .foregroundStyle(state.lastCrashStage != nil ? Color.orange : Color.secondary)
                     .textSelection(.enabled)
             }
 
