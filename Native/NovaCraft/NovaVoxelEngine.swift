@@ -16,22 +16,23 @@ private struct NovaSceneUniforms {
 }
 
 private enum NovaVoxelWorld {
-    static let side = 24
-
-    static func height(_ x: Int, _ z: Int) -> Int {
+    /// Reproducible procedural height field; does not read Minecraft world data.
+    static func height(_ x: Int, _ z: Int, side: Int, seed: Int) -> Int {
         let dx = Float(x) - Float(side - 1) * 0.5
         let dz = Float(z) - Float(side - 1) * 0.5
         let distance = sqrt(dx * dx + dz * dz)
-        let waves = sin(Float(x) * 0.46) * 1.55
-                  + cos(Float(z) * 0.51) * 1.18
-                  + cos(Float(x + z) * 0.24) * 0.80
-        let plateau = max(0, 4.4 - distance * 0.24)
-        return max(1, min(10, Int((plateau + waves + 2.5).rounded())))
+        let phase = Float(seed % 10_000) / 101
+        let waves = sin(Float(x) * 0.32 + phase) * 2.4
+                  + cos(Float(z) * 0.37 - phase * 0.8) * 1.7
+                  + cos(Float(x + z) * 0.19 + phase * 1.1) * 1.2
+        let plateau = max(0, 5.9 - distance * 0.18)
+        return max(1, min(15, Int((plateau + waves + 2.8).rounded())))
     }
 
-    static func generate() -> [NovaVoxelVertex] {
+    static func generate(side rawSide: Int, seed: Int, palette: String) -> [NovaVoxelVertex] {
+        let side = max(24, min(48, rawSide))
         var vertices: [NovaVoxelVertex] = []
-        vertices.reserveCapacity(38_000)
+        vertices.reserveCapacity(side * side * 24)
         let half = Float(side) / 2
 
         // Surface-only greedy-style visibility: draw top faces and only exposed
@@ -47,7 +48,7 @@ private enum NovaVoxelWorld {
         }
         func h(_ x: Int, _ z: Int) -> Int {
             guard (0..<side).contains(x), (0..<side).contains(z) else { return 0 }
-            return height(x, z)
+            return height(x, z, side: side, seed: seed)
         }
         for z in 0..<side {
             for x in 0..<side {
@@ -57,10 +58,24 @@ private enum NovaVoxelWorld {
                 let right = left + 1
                 let back = front + 1
                 let summit = Float(top) * 0.62
-                let cyan = Float((x * 13 + z * 7) % 8) / 100
-                let topTint: SIMD4<Float> = SIMD4<Float>(0.13 + cyan, 0.73 + cyan, 0.73, 1)
-                let sideTint: SIMD4<Float> = SIMD4<Float>(0.04 + cyan, 0.36, 0.53, 1)
-                let shadeTint: SIMD4<Float> = SIMD4<Float>(0.04, 0.22 + cyan, 0.40, 1)
+                let variation = Float((x * 13 + z * 7 + abs(seed % 100)) % 10) / 120
+                let topTint: SIMD4<Float>
+                let sideTint: SIMD4<Float>
+                let shadeTint: SIMD4<Float>
+                switch palette {
+                case "forest":
+                    topTint = SIMD4<Float>(0.13 + variation, 0.62 + variation, 0.28, 1)
+                    sideTint = SIMD4<Float>(0.26, 0.37 + variation, 0.19, 1)
+                    shadeTint = SIMD4<Float>(0.13, 0.26 + variation, 0.15, 1)
+                case "lava":
+                    topTint = SIMD4<Float>(0.90, 0.39 + variation, 0.08, 1)
+                    sideTint = SIMD4<Float>(0.43 + variation, 0.14, 0.19, 1)
+                    shadeTint = SIMD4<Float>(0.26, 0.09 + variation, 0.15, 1)
+                default:
+                    topTint = SIMD4<Float>(0.13 + variation, 0.73 + variation, 0.73, 1)
+                    sideTint = SIMD4<Float>(0.04 + variation, 0.36, 0.53, 1)
+                    shadeTint = SIMD4<Float>(0.04, 0.22 + variation, 0.40, 1)
+                }
 
                 // One top quad per column.
                 emit([
@@ -124,7 +139,7 @@ final class NovaVoxelRenderer: NSObject, MTKViewDelegate {
     private var autoRotate = true
     private var previousFrameTime = CACurrentMediaTime()
 
-    init?(view: MTKView) {
+    init?(view: MTKView, worldSide: Int, seed: Int, palette: String) {
         guard let device = view.device,
               let queue = device.makeCommandQueue() else { return nil }
 
@@ -163,7 +178,7 @@ final class NovaVoxelRenderer: NSObject, MTKViewDelegate {
         depth.isDepthWriteEnabled = true
         guard let depthState = device.makeDepthStencilState(descriptor: depth) else { return nil }
 
-        let vertices = NovaVoxelWorld.generate()
+        let vertices = NovaVoxelWorld.generate(side: worldSide, seed: seed, palette: palette)
         let generatedMesh = vertices.withUnsafeBufferPointer { buffer -> MTLBuffer? in
             guard let data = buffer.baseAddress else { return nil }
             return device.makeBuffer(bytes: data,
@@ -262,8 +277,10 @@ final class NovaVoxelRenderer: NSObject, MTKViewDelegate {
 }
 
 struct NovaVoxelView: UIViewRepresentable {
-    var reset: Int = 0
-    var toggleOrbit: Int = 0
+    let fps: Int
+    let worldSide: Int
+    let worldSeed: Int
+    let palette: String
 
     final class Coordinator: NSObject {
         var renderer: NovaVoxelRenderer?
@@ -296,8 +313,9 @@ struct NovaVoxelView: UIViewRepresentable {
         view.clearColor = MTLClearColor(red: 0.015, green: 0.035, blue: 0.085, alpha: 1)
         view.isPaused = false
         view.enableSetNeedsDisplay = false
-        view.preferredFramesPerSecond = 60
-        if let renderer = NovaVoxelRenderer(view: view) {
+        view.preferredFramesPerSecond = max(20, min(fps, 60))
+        if let renderer = NovaVoxelRenderer(view: view, worldSide: worldSide,
+                                             seed: worldSeed, palette: palette) {
             context.coordinator.renderer = renderer
             view.delegate = renderer
         }
@@ -311,24 +329,29 @@ struct NovaVoxelView: UIViewRepresentable {
     }
 
     func updateUIView(_ view: MTKView, context: Context) {
-        // User-driven actions invoke the renderer explicitly from the screen.
+        view.preferredFramesPerSecond = max(20, min(fps, 60))
     }
 }
 
 struct NovaVoxelEngineScreen: View {
+    @AppStorage("nova-metal-fps") private var fps = 60
+    @AppStorage("nova-world-side") private var worldSide = 24
+    @AppStorage("nova-world-seed") private var seed = 2026
+    @AppStorage("nova-world-palette") private var palette = "aurora"
     @State private var refreshID = 0
+
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             HStack {
-                Label("NovaEngine", systemImage: "cube.transparent.fill")
-                    .font(.title2.bold())
+                Label("NovaEngine 3D", systemImage: "cube.transparent.fill")
+                    .font(.headline.bold())
                 Spacer()
-                Text("Voxel 3D / Metal")
+                Text("\(worldSide)×\(worldSide) · \(fps) FPS")
                     .font(.caption.monospaced())
                     .foregroundStyle(.cyan)
             }
-            NovaVoxelView()
-                .id(refreshID)
+            NovaVoxelView(fps: fps, worldSide: worldSide, worldSeed: seed, palette: palette)
+                .id("\(worldSide)-\(seed)-\(palette)-\(refreshID)")
                 .frame(maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             HStack(spacing: 12) {
@@ -338,14 +361,32 @@ struct NovaVoxelEngineScreen: View {
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
-            Button {
-                refreshID += 1
-            } label: {
-                Label("Zresetuj kamerę i świat", systemImage: "arrow.counterclockwise")
+
+            Picker("Biom", selection: $palette) {
+                Text("Neon").tag("aurora")
+                Text("Las").tag("forest")
+                Text("Lawa").tag("lava")
             }
-            .buttonStyle(.bordered)
-            Text("Autorski rasteryzator NovaEngine: teren 24×24, odsłanianie ścian, bufor głębi i własne sterowanie kamerą. To osobny prototyp grafiki, a nie uruchomiony Minecraft Java ani zgodny renderer OpenGL/GLFW.")
-                .font(.footnote)
+            .pickerStyle(.segmented)
+            HStack(spacing: 8) {
+                Text("Seed: \(seed)").font(.caption.monospaced())
+                Spacer()
+                Button {
+                    seed = Int.random(in: 1...999_999)
+                } label: {
+                    Label("Nowy teren", systemImage: "dice")
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    refreshID += 1
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel("Resetuj kamerę")
+            }
+            Text("Autorski renderer Metal: procedurally generowany teren, 3 biomy, wybór ziarna, ukrywanie niewidocznych ścian, bufor głębi i gesty kamery. Nie jest to Minecraft Java ani most OpenGL/GLFW.")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
         .padding()
