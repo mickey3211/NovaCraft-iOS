@@ -271,9 +271,9 @@ struct LauncherView: View {
                             .font(.footnote).foregroundStyle(.secondary)
                         Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
                             .font(.footnote).foregroundStyle(.secondary)
-                        Label("Naprawiony start JVM: JNI_CreateJavaVM", systemImage: "checkmark.shield.fill")
-                            .foregroundStyle(.green)
-                        Text("NovaCraft używa teraz bezpośredniego JNI. Poprzednia metoda JLI mogła wywołać ponownie punkt startowy SwiftUI i zakończyć aplikację błędem AppGraph.shared. Uruchom Test JVM, aby sprawdzić następny etap.")
+                        Label("Start Java 21 przez JNI — diagnostyka iOS", systemImage: "cpu")
+                            .foregroundStyle(.orange)
+                        Text("Błąd ponownego wejścia do SwiftUI przez JLI został ominięty, ale najnowsze logi pokazują nadal możliwą awarię HotSpot podczas tworzenia maszyny Java. Nowy test JVM i opcje pamięci mają zawęzić przyczynę, a nie gwarantować uruchomienie Minecrafta.")
                             .font(.footnote).foregroundStyle(.secondary)
                         NavigationLink {
                             NovaJVMDiagnosticsScreen()
