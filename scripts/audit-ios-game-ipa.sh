@@ -15,7 +15,12 @@ grep -Eq '^JAVA_VERSION="21([.]|")' "$FRAME/release" || {
 [[ -d "$FRAME/conf" ]] || {
   echo "Missing Java21 conf/ folder required by JVM bootstrap"; exit 1;
 }
-[[ -s "$FRAME/bin/java" ]] || { echo "Missing Java launcher bin/java required by JLI_Launch"; exit 1; }
+# iOS launchers can supply JAVA_HOME/bin/java as JLI argv[0] without
+# shipping the desktop Java CLI executable. Amethyst-iOS strips bin/ from
+# the release bundle; require actual libjli/libjvm instead.
+if [[ ! -s "$FRAME/bin/java" ]]; then
+  echo "INFO: optional bin/java absent; JLI will receive its Java-home argv[0] path."
+fi
 [[ -s "$APP/Frameworks/liblwjgl.dylib" ]] || { echo "Missing LWJGL native"; exit 1; }
 [[ -s "$APP/LWJGL-iOS/lwjgl.jar" ]] || { echo "Missing LWJGL jar"; exit 1; }
 
