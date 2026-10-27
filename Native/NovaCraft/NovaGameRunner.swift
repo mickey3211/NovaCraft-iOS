@@ -45,19 +45,38 @@ enum NovaGameRunner {
         // User-controlled memory budget (384…1024 MB on 4 GB devices).
         // Clamp by physical RAM to reduce iOS jetsam termination risk.
         // This does not enable JIT or change Java/LWJGL compatibility.
-        let heapMB = probeOnly ? 256 : NovaPerformance.heapMB
-        jvmOptions.removeAll { $0.hasPrefix("-Xmx") || $0 == "-Xint" }
+        // Compatibility is on by default for sideloaded iOS applications.
+        // User can turn it off to compare logs without changing the JRE.
+        let compatibilityKey = "novacraft-ios-jvm-compatibility"
+        let compatibility = UserDefaults.standard.object(forKey: compatibilityKey) == nil
+            || UserDefaults.standard.bool(forKey: compatibilityKey)
+        let physicalMB = Int(ProcessInfo.processInfo.physicalMemory / (1024 * 1024))
+        let maximum = physicalMB < 6144 ? 768 : NovaPerformance.availableHeapMB()
+        let heapMB = probeOnly ? 256 : (compatibility ? min(NovaPerformance.heapMB, maximum) : NovaPerformance.heapMB)
+        jvmOptions.removeAll {
+            $0.hasPrefix("-Xmx") || $0.hasPrefix("-Xms") ||
+            $0 == "-Xint" || $0.hasPrefix("-XX:ReservedCodeCacheSize=") ||
+            $0 == "-XX:+UseCompressedOops" || $0 == "-XX:-UseCompressedOops"
+        }
         if probeOnly {
-            // Isolate VM startup from memory-heavy game settings.
+            // No Minecraft client, LWJGL or multi-gigabyte Java classpath.
             jvmOptions.append("-Xms32m")
             jvmOptions.append("-XX:ReservedCodeCacheSize=32m")
+        } else if compatibility {
+            jvmOptions.append("-Xms64m")
         }
         jvmOptions.append("-Xmx\(heapMB)m")
         jvmOptions.append("-Xint")
         jvmOptions.append("-XX:+UseSerialGC")
         jvmOptions.append("-XX:-UsePerfData")
-        // iOS sideload builds commonly lack extended-virtual-addressing rights.
-        // Avoid HotSpot reserving a large compressed-class-pointer address range.
+        // The user's JVM log shows repeated EINVAL (errno 22) when HotSpot
+        // tries to reserve the 1 GiB heap at preferred compressed-oop
+        // addresses. Its fallback later succeeds, so this flag is an A/B
+        // memory-layout diagnostic, NOT a confirmed fix for the crash.
+        // Uncompressed oops use more RAM but avoid those address constraints.
+        if compatibility || probeOnly {
+            jvmOptions.append("-XX:-UseCompressedOops")
+        }
         jvmOptions.append("-XX:-UseCompressedClassPointers")
         // The game runs on a dedicated Java thread rather than the UIKit main thread.
         // This does not provide a renderer; it only configures LWJGL's thread checks.
