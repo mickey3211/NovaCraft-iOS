@@ -29,6 +29,22 @@ for tool in ant wget xcodegen; do
     fi
 done
 
+# Compile Swift first, before using free minutes to build the large LWJGL fork.
+# The Xcode target does not link Java/LWJGL until after the .app is built.
+python3 -m venv "$TEMP_WORK/icon-venv"
+"$TEMP_WORK/icon-venv/bin/python" -m pip install --disable-pip-version-check pillow
+"$TEMP_WORK/icon-venv/bin/python" scripts/generate-app-icon.py
+xcodegen generate
+
+echo "Building unsigned NovaCraft iOS app"
+xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
+    -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+    -derivedDataPath "$TEMP_WORK/DerivedData" CODE_SIGNING_ALLOWED=NO build \
+    2>&1 | tee "$LOGS/xcodebuild.log"
+
+APP="$TEMP_WORK/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
+[[ -d "$APP" ]] || { echo "Missing NovaCraft.app"; exit 1; }
+
 UPSTREAM_REV="39272d4d0ca119379024e3ca7207699fd3fce237"
 LWJGL_SOURCE="$TEMP_WORK/lwjgl3"
 echo "Fetching pinned iOS LWJGL commit $UPSTREAM_REV"
@@ -80,19 +96,6 @@ cp "$LWJGL_SOURCE/bin/out/"*.dylib Vendor/LWJGL-iOS/native/
 echo "Downloading checksum-verified iOS Java 21 runtime"
 bash scripts/build-vendor-ios-jre21.sh 2>&1 | tee "$LOGS/java-runtime.log"
 
-python3 -m venv "$TEMP_WORK/icon-venv"
-"$TEMP_WORK/icon-venv/bin/python" -m pip install --disable-pip-version-check pillow
-"$TEMP_WORK/icon-venv/bin/python" scripts/generate-app-icon.py
-xcodegen generate
-
-echo "Building unsigned NovaCraft iOS app"
-xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
-    -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
-    -derivedDataPath "$TEMP_WORK/DerivedData" CODE_SIGNING_ALLOWED=NO build \
-    2>&1 | tee "$LOGS/xcodebuild.log"
-
-APP="$TEMP_WORK/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
-[[ -d "$APP" ]] || { echo "Missing NovaCraft.app"; exit 1; }
 bash scripts/package-java-runtime.sh "$APP"
 bash scripts/package-upstream-lwjgl-ios.sh "$APP"
 [[ -s "$APP/Frameworks/NovaJava21.framework/NovaJava21" ]] || exit 1
