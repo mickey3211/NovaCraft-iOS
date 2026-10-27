@@ -152,3 +152,102 @@ minimalnym teście, nie można zapewniać użytkownika, że nowy IPA
 uruchomi Minecraft. Najpierw odczytaj `.ips`, następnie wybierz
 kompatybilny runtime / napraw natywną awarię, a dopiero potem
 integruj GLFW/OpenGL.
+
+
+## Potwierdzona przyczyna z raportu iOS .ips — 28 października 2026 (Build 15)
+
+Użytkownik dostarczył pełny raport analityczny `.ips` dla NovaCraft
+**1.1.0 (15)** na **iPhone 13 / iOS 27.0.1**, z godziny
+**2026-10-28 00:00:37 +0100**. Raportu nie należy zamieszczać
+w całości publicznie: zawiera indywidualne identyfikatory urządzenia
+i instalacji. Poniżej tylko techniczne, nieidentyfikujące pola.
+
+### Rozstrzygające pola
+
+```text
+exception.type = EXC_BAD_ACCESS
+exception.subtype = KERN_PROTECTION_FAILURE
+exception.signal = SIGKILL
+termination.namespace = CODESIGNING
+termination.indicator = Invalid Page
+ktriageinfo = Failed to fault in a page with execute permissions
+faultingThread = 6 ("NovaCraft-Java-21")
+esr = (Instruction Abort) Permission fault
+faulting region = Untagged, rw-/rwx, SM=COW
+stack (top native frames):
+  <anonymous executable address>
+  InstanceKlass::call_class_initializer(JavaThread*)
+  InstanceKlass::initialize_impl(JavaThread*)
+  Threads::initialize_java_lang_classes(JavaThread*, JavaThread*)
+  Threads::create_vm(JavaVMInitArgs*, bool*)
+  JNI_CreateJavaVM
+  nova_jni_invoke_main
+  NovaGameRunner.run(_:javaMajor:)
+```
+
+### Co wiemy na pewno
+
+1. **Jest to wymuszone zakończenie procesu przez ochronę
+   wykonywania kodu / code signing w iOS** — nie komunikat o
+   braku pamięci, braku licencji Minecrafta ani typowy
+   Java-level exception. `SIGKILL` wystąpił w połączeniu
+   z `CODESIGNING / Invalid Page`.
+2. Program próbował wykonać instrukcję ze strony pamięci
+   oznaczonej jako zapisywalna, ale nie wykonywalna
+   (`rw-/rwx`). iOS odmówił nadania dostępu do wykonania.
+   Raport nie pokazuje legalnie wykonywalnej strony podpisanej
+   biblioteki, tylko anonimowy obszar pamięci powiązany
+   z natywną inicjalizacją JVM.
+3. **HotSpot Server VM** używany przez NovaCraft może
+   generować kod maszynowy również z opcją `-Xint`
+   (stub-y runtime/interpretera). `-Xint` nie robi z
+   Server VM maszyny Zero i nie gwarantuje uniknięcia ochrony
+   pamięci wykonywalnej.
+4. Minimalny test Java 21 przy `-Xmx256m`, `-Xint`
+   oraz wyłączonym compressed oops nie uruchomił żadnej
+   klasy użytkownika. Nie ma sensu próbować wciąż
+   zmieniać `-Xmx`, pobierać Minecrafta od nowa ani
+   przełączać LWJGL, zanim sama JVM przejdzie test.
+5. **Nie wolno stwierdzić**, że źródłem jest niepodpisany
+   `libjvm.dylib` jako całość: bibliotekę załadowano, a
+   odmowa nastąpiła dopiero podczas wykonania strony
+   ze zmiennymi prawami dostępu. Samo ponowne podpisanie
+   identycznego Server VM może nie pomóc.
+
+### Naprawa docelowa (nie wdrożona)
+
+**A. JVM bez generowania kodu wykonywalnego:** przygotować
+spójny, prawidłowo zbudowany dla iPhone ARM64 wariant
+**OpenJDK Zero**, najlepiej Java 21 (Minecraft 1.21.5),
+z klasami i natywnymi bibliotekami **z tego samego builda**.
+Oficjalny `openjdk/mobile` używa dla iOS Zero i produkuje
+statyczną bibliotekę `lib/zero/libjvm.a`. Jej prawidłowa
+integracja wymaga linkowania w natywnym projekcie iOS,
+dołączenia dopasowanego `java.base` i innych modułów
+wymaganych przez grę oraz dokładnych testów JNI.
+**Nie podmieniaj** istniejącego `lib/server/libjvm.dylib`
+plikiem `libjvm.a`; to niezgodne formaty i zwykle
+różne wersje Java. Dostępny snapshot OpenJDK Mobile
+zawiera nowsze JDK, nie jest zamiennikiem JRE 21.0.8.
+
+**B. Uprawniony tryb debugowania JIT:** ewentualnie
+uruchamiać Server VM tylko, jeśli iOS faktycznie zezwala
+danej podpisanej aplikacji na wykonywanie dynamicznego
+kodu w ramach dostępnej konfiguracji deweloperskiej.
+Samo zaznaczenie JIT w ustawieniach launchera czy wpis
+uprawnienia w IPA nie nadaje brakujących praw systemowych.
+Nie sugerujemy obchodzenia bezpieczeństwa systemu
+niezaufanymi binariami.
+
+**Kryterium zaliczenia:** na fizycznym iPhonie 13,
+z podpisem, który użytkownik może legalnie uzyskać
+bez opłat, samodzielny test drukuje `JVM_ENTRY_REACHED`
+i `JVM_PROBE_OK` bez zakończenia procesu. Dopiero wtedy
+można testować Minecraft 1.21.5 i pełny renderer
+GLFW/OpenGL. Na dziś ten warunek **nie jest spełniony**.
+
+Źródła:
+- https://github.com/openjdk/mobile
+- https://openjdk-mobile.github.io/ios/helloworld/
+- https://support.apple.com/pl-pl/guide/security-pdf/sec15bfe098e/1/web/1
+- https://github.com/openjdk-mobile/ios-tools/blob/main/docs/helloworld.md
