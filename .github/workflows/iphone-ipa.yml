@@ -55,6 +55,9 @@ jobs:
       - name: Embed optional upstream iOS LWJGL libraries
         run: bash scripts/package-upstream-lwjgl-ios.sh "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
 
+      - name: Bundle first-party Java diagnostic bootstrap
+        run: bash scripts/package-nova-bootstrap.sh "$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos/NovaCraft.app"
+
       - name: Package unsigned IPA
         run: |
           set -euo pipefail
