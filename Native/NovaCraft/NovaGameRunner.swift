@@ -17,8 +17,13 @@ enum NovaGameRunner {
         // Resolve JVM properties against the classpath that actually includes
         // the iOS LWJGL jars, not the original desktop-only Minecraft manifest.
         var jvmOptions = normalizeJVMOptions(args.jvmArguments)
-        // JLI derives java.home from the bundled executable path and JAVA_HOME.
-        // Explicit -Djava.home can interfere with locating OpenJDK runtime modules.
+        // JLI derives java.home from its bundled launcher path; do not
+        // override it there. The direct Invocation API, however, does not
+        // perform JLI path discovery and needs the explicit Java home.
+        if javaMajor == 21 && experimentalDirectJNI {
+            let home = library.deletingLastPathComponent().path
+            jvmOptions.append("-Djava.home=\(home)")
+        }
         // Keep JVM heap under iOS jetsam limits. The native JNI bridge
         // respects an explicit -Xmx option instead of adding a duplicate.
         let physicalGB = ProcessInfo.processInfo.physicalMemory / (1024 * 1024 * 1024)
