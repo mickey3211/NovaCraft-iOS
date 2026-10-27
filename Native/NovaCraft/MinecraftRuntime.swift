@@ -68,6 +68,10 @@ struct NovaEngineRuntime: MinecraftRuntime {
             javaThread.start()
         }
         guard code == 0 else { throw NovaEngineLaunchError.jvmFailure(code) }
+        // Probe mode runs only the bundled Java bootstrap. The JVM cannot be
+        // restarted in the same process; users must relaunch NovaCraft before
+        // trying Minecraft again.
+        if UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") { return }
         let runtimeSeconds = ProcessInfo.processInfo.systemUptime - startTime
         if runtimeSeconds < 10 {
             throw NovaEngineLaunchError.gameExitedImmediately(runtimeSeconds)
