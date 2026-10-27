@@ -1,5 +1,13 @@
 # NovaCraft — JVM Java 21 / iOS 27: diagnoza
 
+> **AKTUALIZACJA 28.10.2026:** Raport iOS `.ips` dla Build 15 potwierdził
+> `CODESIGNING: Invalid Page` podczas próby wykonania kodu z anonimowej
+> strony pamięci w `InstanceKlass::call_class_initializer`.
+> Najbardziej prawdopodobną przyczyną jest użycie HotSpot Server VM
+> wymagającego generowanych fragmentów kodu przy podpisie bez dostępnego
+> mechanizmu JIT. Pełną analizę znajdziesz w ostatniej sekcji dokumentu.
+> Starsze fragmenty poniżej zachowano jako historię dochodzenia.
+
 Data: 27 października 2026 r.
 
 ## Co wiadomo
