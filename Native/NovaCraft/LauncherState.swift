@@ -240,7 +240,11 @@ final class LauncherState: ObservableObject {
         }
         do {
             try await runtime.launch(version: selectedVersion, account: account, offlineNickname: activeOfflineProfile?.nickname)
-            message = "Java zakończyła działanie; widok gry nie jest jeszcze połączony z launcherem. Sprawdź dziennik Java."
+            if UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only") {
+                message = "Test JVM zakończony. Sprawdź w dzienniku Java wpis JVM_PROBE_OK. Wyłącz tryb testowy i uruchom NovaCraft ponownie przed kolejnym startem gry."
+            } else {
+                message = "Java zakończyła działanie; sprawdź dziennik Java i etap uruchomienia gry."
+            }
             lastCrashStage = Self.lastJVMCheckpoint()
             lastJavaOutput = Self.lastJavaOutputLog()
             lastHotspotBootLog = Self.lastHotspotBootLog()
