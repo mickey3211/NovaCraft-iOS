@@ -266,6 +266,13 @@ struct LauncherView: View {
                             .foregroundStyle(.green)
                         Text("NovaCraft używa teraz bezpośredniego JNI. Poprzednia metoda JLI mogła wywołać ponownie punkt startowy SwiftUI i zakończyć aplikację błędem AppGraph.shared. Uruchom Test JVM, aby sprawdzić następny etap.")
                             .font(.footnote).foregroundStyle(.secondary)
+                        NavigationLink {
+                            NovaJVMDiagnosticsScreen()
+                        } label: {
+                            Label("Pełny raport awarii Java 21", systemImage: "doc.text.magnifyingglass")
+                        }
+                        Text("Jeżeli gra znika podczas JNI_CreateJavaVM, eksportuj raport HotSpot hs_err_pid i dziennik Java. Bez raportu nie da się rozróżnić błędu pamięci, podpisu bibliotek i ograniczeń JIT.")
+                            .font(.footnote).foregroundStyle(.secondary)
                         Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
