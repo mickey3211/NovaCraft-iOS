@@ -88,10 +88,17 @@ jobs:
               assert base+"NovaZeroSmoke.jar" in names
               assert base+"lib/lib/modules" in names
               info=plistlib.loads(z.read(base+"Info.plist"))
-              assert info["CFBundleVersion"]=="16"
+              assert info["CFBundleVersion"]=="17"
               assert info["CFBundleIdentifier"]=="pl.novacraft.zero.integrated"
               assert info["CFBundleDisplayName"]=="NovaCraft Z-Dev"
               assert b"NOVA_ZERO_INTEGRATED_OK" in z.read(base+"NovaCraft")
+              assert b"ZERO_READINESS_ERROR" in z.read(base+"NovaCraft")
+              import io
+              with zipfile.ZipFile(io.BytesIO(z.read(base+"NovaZeroSmoke.jar"))) as classes:
+                  code=classes.read("dev/novacraft/zero/NovaZeroSmoke.class")
+                  assert b"ZERO_ZIP_API_OK" in code
+                  assert b"MINECRAFT_CLIENT_JAR" in code
+                  assert b"ZERO_MODULE_" in code
           PY
       - name: Store compiler logs when build fails
         if: failure()
