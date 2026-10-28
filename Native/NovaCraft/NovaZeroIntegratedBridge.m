@@ -28,7 +28,7 @@ static void zeroLog(NSString *line) {
 // This function is called ONLY on a dedicated Java thread, not the
 // SwiftUI main thread. Once Java is created it remains active in-process.
 // Multiple simultaneous Zero or HotSpot instances are not supported.
-int nova_zero_run_smoke_test(void) {
+int nova_zero_run_smoke_test(const char *minecraft_version) {
     bool previous = atomic_exchange(&zeroStarted, true);
     if (previous) {
         zeroLog(@"ZERO_INTEGRATION: JVM already started; restart app for another test.");
@@ -102,7 +102,54 @@ int nova_zero_run_smoke_test(void) {
             return -97;
         }
         zeroLog(@"NOVA_ZERO_INTEGRATED_OK: JNI ran Java 21 class bytecode inside NovaCraft SwiftUI.");
-        zeroLog(@"This is NOT proof Minecraft or OpenGL works.");
+
+        // Next diagnostic phase: check real Zero modules, Java ZIP and thread
+        // APIs, and optionally parse an installed client.jar without running
+        // Minecraft, loading native libraries, or touching Microsoft tokens.
+        // Validate the version component so untrusted text cannot construct
+        // a path outside Application Support/NovaCraft/versions/.
+        NSString *version = minecraft_version
+            ? [NSString stringWithUTF8String:minecraft_version] : @"";
+        NSCharacterSet *allowed =
+            [NSCharacterSet characterSetWithCharactersInString:
+             @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"];
+        NSString *clientPath = @"";
+        if (version.length > 0 && version.length <= 80 &&
+            [version rangeOfCharacterFromSet:allowed.invertedSet].location == NSNotFound &&
+            ![version isEqualToString:@"."] && ![version isEqualToString:@".."]) {
+            NSString *support = NSSearchPathForDirectoriesInDomains(
+                NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+            clientPath = [[[[support stringByAppendingPathComponent:@"NovaCraft"]
+                             stringByAppendingPathComponent:@"versions"]
+                             stringByAppendingPathComponent:version]
+                             stringByAppendingPathComponent:@"client.jar"];
+        }
+        jmethodID readiness = (*env)->GetStaticMethodID(
+            env, cls, "readiness", "(Ljava/lang/String;)Ljava/lang/String;");
+        if (!readiness || (*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionDescribe(env);
+            (*env)->ExceptionClear(env);
+            zeroLog(@"ZERO_READINESS_ERROR: readiness method unavailable");
+        } else {
+            jstring path = (*env)->NewStringUTF(env, clientPath.UTF8String);
+            jstring output = path ? (jstring)(*env)->CallStaticObjectMethod(
+                env, cls, readiness, path) : NULL;
+            if ((*env)->ExceptionCheck(env) || !output) {
+                (*env)->ExceptionDescribe(env);
+                (*env)->ExceptionClear(env);
+                zeroLog(@"ZERO_READINESS_ERROR: Java readiness threw");
+            } else {
+                const char *text = (*env)->GetStringUTFChars(env, output, NULL);
+                if (text) {
+                    zeroLog([NSString stringWithUTF8String:text] ?: @"ZERO_READINESS: bad UTF8");
+                    (*env)->ReleaseStringUTFChars(env, output, text);
+                }
+                (*env)->DeleteLocalRef(env, output);
+            }
+            if (path) (*env)->DeleteLocalRef(env, path);
+        }
+
+        zeroLog(@"Minecraft bytecode was NOT run. GLFW/OpenGL are NOT ready.");
         // Zero remains alive until the iOS app is stopped; do not call
         // DestroyJavaVM from an on-screen button (may block indefinitely).
         return 0;
