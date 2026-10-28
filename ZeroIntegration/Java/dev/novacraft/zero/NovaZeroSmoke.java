@@ -3,6 +3,7 @@ package dev.novacraft.zero;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -41,7 +42,9 @@ public final class NovaZeroSmoke {
 
         for (String module : List.of("java.base", "java.desktop", "java.logging",
                 "java.xml", "java.net.http", "java.management", "jdk.unsupported")) {
-            boolean present = ModuleLayer.boot().findModule(module).isPresent();
+            // Check installed system image, not just modules currently resolved
+            // in the minimal smoke class' boot ModuleLayer.
+            boolean present = ModuleFinder.ofSystem().find(module).isPresent();
             out.append("ZERO_MODULE_")
                .append(module)
                .append(": ")
