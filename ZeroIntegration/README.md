@@ -12,6 +12,40 @@ Komunikat: `ZERO_JVM_PROBE_OK Java bytecode major 65 | suma=500500`.
 To rozwiązuje tylko początkowy problem uruchamiania bytecode na urządzeniu
 z ograniczeniami JIT. Nie oznacza działania Minecrafta.
 
+## Potwierdzenie na urządzeniu — Build 16
+
+Użytkownik przesłał zrzut ekranu **NovaCraft Z-Dev Build 16**
+z pozytywnym wynikiem **wewnątrz oryginalnego interfejsu SwiftUI**:
+
+```text
+ZERO_STEP: JNI_CreateJavaVM returned 0
+ZERO_JVM_PROBE_OK Java bytecode major 65 | suma=500500
+NOVA_ZERO_INTEGRATED_OK
+Kod zwrotny: 0
+```
+
+Oznacza to **potwierdzone na iPhonie** działanie statycznego OpenJDK
+Zero i wykonywanie kodu Java 21 w NovaCraft. Nie uruchomiono Minecrafta.
+
+### Faza 2 — Build 17: test Java API i archiwum Minecraft
+
+W kolejnej wersji test Java Zero dodatkowo:
+
+- wypisuje `java.version` i nazwę JVM;
+- sprawdza moduły `java.base`, `java.desktop`, `java.logging`,
+  `java.xml`, `java.net.http`, `java.management`, `jdk.unsupported`;
+- próbuje kompresji i dekompresji ZIP;
+- tworzy i łączy wątek Java;
+- jeśli `client.jar` wybranej wersji został pobrany **wewnątrz
+  NovaCraft Z-Dev**, parsuje wyłącznie spis wpisów ZIP i liczy pliki
+  `.class`.
+
+Bez uruchamiania Minecrafta, pobierania dodatkowego niezweryfikowanego
+kodu, ładowania GLFW i przesyłania danych konta. Wynik
+`MINECRAFT_CLIENT_JAR: NOT_DOWNLOADED_IN_THIS_APP` oznacza brak
+pliku w tej instalacji, a nie awarię Zero. Wyniki testu nie dowodzą
+kompatybilności pełnego klienta ani wydajności.
+
 ## Co zawiera bieżąca gałąź
 
 - Cały istniejący interfejs SwiftUI NovaCraft, NovaEngine/Metal,
@@ -25,7 +59,7 @@ z ograniczeniami JIT. Nie oznacza działania Minecrafta.
 - `NovaZeroSmoke.java`: pierwsza klasa Java na potrzeby NovaCraft,
   kompilowana do Java 21 (`--release 21`).
 - Osobny identyfikator `pl.novacraft.zero.integrated`, nazwa
-  **NovaCraft Z-Dev** i kompilacja `16`, aby NIE zastąpić normalnego
+  **NovaCraft Z-Dev** i kompilacja `17`, aby NIE zastąpić normalnego
   NovaCraft ani osobnej wcześniejszej aplikacji Zero Proof.
 
 ## Test na iPhonie
