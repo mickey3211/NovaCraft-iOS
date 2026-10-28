@@ -95,7 +95,6 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
         NSString *message = [NSString stringWithUTF8String:utf] ?: @"ZERO_FAILED: invalid utf8";
         (*env)->ReleaseStringUTFChars(env, output, utf);
         (*env)->DeleteLocalRef(env, output);
-        (*env)->DeleteLocalRef(env, cls);
         zeroLog(message);
         if (![message hasPrefix:@"ZERO_JVM_PROBE_OK"]) {
             zeroLog(@"ZERO_FAILED: unexpected Java result");
@@ -149,6 +148,7 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
             if (path) (*env)->DeleteLocalRef(env, path);
         }
 
+        (*env)->DeleteLocalRef(env, cls);
         zeroLog(@"Minecraft bytecode was NOT run. GLFW/OpenGL are NOT ready.");
         // Zero remains alive until the iOS app is stopped; do not call
         // DestroyJavaVM from an on-screen button (may block indefinitely).
