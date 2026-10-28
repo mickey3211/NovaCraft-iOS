@@ -24,14 +24,19 @@ struct NovaEngineRuntime: MinecraftRuntime {
 
     func launch(version: String, account: MinecraftAccount?, offlineNickname: String?) async throws {
         #if NOVA_ZERO_INTEGRATION
-        // Protect users from the known CODESIGNING Invalid Page crash in the
-        // bundled HotSpot Server VM. This branch has a static Zero smoke test,
-        // but not a full Zero Java 21 Minecraft runtime or GLFW/OpenGL yet.
+        let diagnostic = await NovaZeroLaunchDiagnostics.run(version: version)
+        if diagnostic.version != version {
+            throw NovaEngineLaunchError.missingJavaAndRenderer(
+                "Raport dotyczy wersji \(diagnostic.version). Zamknij i ponownie otwórz aplikację, aby sprawdzić inną wersję."
+            )
+        }
+        guard diagnostic.status == 0 else {
+            throw NovaEngineLaunchError.missingJavaAndRenderer(
+                "Nie udało się przygotować środowiska Java (kod \(diagnostic.status)). Szczegóły: Ustawienia → Raport diagnostyczny."
+            )
+        }
         throw NovaEngineLaunchError.missingJavaAndRenderer(
-            "NovaCraft Zero: użyj Ustawienia → Uruchom test Java Zero w NovaCraft. " +
-            "Ta wersja testuje natywną JVM wewnątrz SwiftUI; nie ma jeszcze pełnego " +
-            "runtime Java 21 Zero i renderera Minecraft. Stary HotSpot Server VM " +
-            "jest celowo wyłączony po błędzie CODESIGNING Invalid Page."
+            "Zapisano raport uruchomienia. Ten build zawiera ograniczone środowisko Java Zero; pełne moduły Java i obsługa grafiki Minecraft są nadal niedostępne. Szczegóły: Ustawienia → Raport diagnostyczny."
         )
         #else
         // The pure VM test must be possible without downloading Minecraft,

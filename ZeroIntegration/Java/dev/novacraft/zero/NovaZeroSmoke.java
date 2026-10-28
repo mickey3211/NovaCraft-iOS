@@ -3,11 +3,14 @@ package dev.novacraft.zero;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -55,7 +58,11 @@ public final class NovaZeroSmoke {
             // Verifies java.base compression/inflation before opening Minecraft.
             ByteArrayOutputStream data = new ByteArrayOutputStream();
             try (ZipOutputStream zip = new ZipOutputStream(data, StandardCharsets.UTF_8)) {
-                zip.putNextEntry(new ZipEntry("novacraft/readiness.txt"));
+                // A ZIP compression check must not depend on the separately
+                // packaged timezone database. Keep a fixed DOS-range timestamp.
+                ZipEntry sample = new ZipEntry("novacraft/readiness.txt");
+                sample.setTimeLocal(LocalDateTime.of(2020, 1, 1, 0, 0));
+                zip.putNextEntry(sample);
                 zip.write("NOVA_ZIP_OK".getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
@@ -73,6 +80,16 @@ public final class NovaZeroSmoke {
             out.append("ZERO_ZIP_API_OK\n");
         } catch (Throwable t) {
             out.append("ZERO_ZIP_API_FAILED: ").append(t.getClass().getSimpleName()).append('\n');
+            appendFailure(out, "ZERO_ZIP_CAUSE", t);
+        }
+
+        // This is independent of ZIP so missing tzdb.dat is not misreported
+        // as a broken deflater or static native library.
+        try {
+            ZoneId.systemDefault().getRules().getOffset(java.time.Instant.EPOCH);
+            out.append("ZERO_TIMEZONE_API: OK\n");
+        } catch (Throwable t) {
+            appendFailure(out, "ZERO_TIMEZONE_API_FAILED", t);
         }
 
         try {
@@ -87,6 +104,7 @@ public final class NovaZeroSmoke {
             out.append("ZERO_JAVA_THREADS: FAILED ").append(t.getClass().getSimpleName()).append('\n');
         }
 
+        out.append("MINECRAFT_READINESS: BLOCKED (runtime and graphics integration incomplete)\n");
         if (clientJarPath == null || clientJarPath.isBlank()) {
             out.append("MINECRAFT_CLIENT_JAR: NOT_SELECTED\n");
             return out.toString();
@@ -97,21 +115,63 @@ public final class NovaZeroSmoke {
             return out.toString();
         }
 
-        // Only parses the archive table; does NOT classload or execute game code.
+        // Reads the archive table and class headers; never loads or executes game code.
         try (ZipFile jar = new ZipFile(client)) {
             int classes = 0;
             int entries = 0;
+            int invalidHeaders = 0;
+            int unsupportedClasses = 0;
+            int maximumMajor = 0;
+            int versionedClasses = 0;
+            boolean entrypointPresent = false;
+            int runtimeMajor = Runtime.version().feature() + 44;
             java.util.Enumeration<? extends ZipEntry> all = jar.entries();
             while (all.hasMoreElements()) {
                 ZipEntry entry = all.nextElement();
                 entries++;
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
+                    // Multi-release entries are not the base classes. Their selection
+                    // depends on the JAR manifest and runtime; report them separately.
+                    if (entry.getName().startsWith("META-INF/versions/")) {
+                        versionedClasses++;
+                        continue;
+                    }
                     classes++;
+                    boolean main = entry.getName().equals("net/minecraft/client/main/Main.class");
+                    entrypointPresent |= main;
+                    try (DataInputStream header = new DataInputStream(jar.getInputStream(entry))) {
+                        if (header.readInt() != 0xCAFEBABE) {
+                            invalidHeaders++;
+                            continue;
+                        }
+                        int minor = header.readUnsignedShort();
+                        int major = header.readUnsignedShort();
+                        maximumMajor = Math.max(maximumMajor, major);
+                        if (major < 45 || (major >= 56 && minor != 0 && minor != 65535)) {
+                            invalidHeaders++;
+                        } else if (major > runtimeMajor || minor == 65535) {
+                            // This probe never enables preview features.
+                            unsupportedClasses++;
+                        }
+                    } catch (IOException malformed) {
+                        invalidHeaders++;
+                    }
                 }
             }
             out.append("MINECRAFT_CLIENT_JAR: ZIP_READ_OK\n");
             out.append("MINECRAFT_ARCHIVE_ENTRIES: ").append(entries).append('\n');
             out.append("MINECRAFT_CLASS_FILES: ").append(classes).append('\n');
+            out.append("MINECRAFT_MODERN_ENTRYPOINT: ")
+               .append(entrypointPresent ? "PRESENT" : "MISSING").append('\n');
+            out.append("MINECRAFT_MAX_CLASS_MAJOR: ").append(maximumMajor).append('\n');
+            out.append("ZERO_SUPPORTED_CLASS_MAJOR: ").append(runtimeMajor).append('\n');
+            out.append("MINECRAFT_INVALID_CLASS_HEADERS: ").append(invalidHeaders).append('\n');
+            out.append("MINECRAFT_UNSUPPORTED_CLASS_HEADERS: ").append(unsupportedClasses).append('\n');
+            out.append("MINECRAFT_VERSIONED_CLASSES_NOT_CHECKED: ").append(versionedClasses).append('\n');
+            out.append("MINECRAFT_BASE_CLASS_HEADERS: ")
+               .append(classes > 0 && invalidHeaders == 0 && unsupportedClasses == 0
+                   ? "COMPATIBLE" : "FAILED").append('\n');
+            // Header checks do not verify class bodies, dependencies or native APIs.
             if (classes < 1000) {
                 out.append("MINECRAFT_ARCHIVE_WARNING: unusually few .class files\n");
             }
@@ -123,4 +183,25 @@ public final class NovaZeroSmoke {
         out.append("LWJGL_OPENGL: NOT_TESTED\n");
         return out.toString();
     }
+    private static void appendFailure(StringBuilder out, String stage, Throwable failure) {
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < 4; depth++) {
+            out.append(stage).append("[").append(depth).append("]: ")
+               .append(cause.getClass().getName()).append(": ");
+            String message = cause.getMessage();
+            if (message != null) {
+                // Bound log size and keep one record per line.
+                message = message.replace('\n', ' ').replace('\r', ' ');
+                out.append(message.substring(0, Math.min(600, message.length())));
+            }
+            out.append('\n');
+            StackTraceElement[] trace = cause.getStackTrace();
+            for (int frame = 0; frame < Math.min(6, trace.length); frame++) {
+                out.append("  at ").append(trace[frame]).append('\n');
+            }
+            if (cause.getCause() == cause) break;
+            cause = cause.getCause();
+        }
+    }
+
 }

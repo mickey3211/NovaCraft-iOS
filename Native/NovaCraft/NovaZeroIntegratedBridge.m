@@ -48,6 +48,8 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
             zeroLog(@"ZERO_FAILED: missing Java smoke jar or bundled Zero modules.");
             return -91;
         }
+        zeroLog([NSString stringWithFormat:@"APP_BUILD: %@", [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]]);
+        zeroLog([NSString stringWithFormat:@"REPORT_DATE: %@", NSDate.date]);
         zeroLog(@"ZERO_INTEGRATION: static OpenJDK Mobile Zero linked into NovaCraft.");
         zeroLog(@"ZERO_STEP: loadfunctions()");
         loadfunctions();
@@ -116,6 +118,7 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
         if (version.length > 0 && version.length <= 80 &&
             [version rangeOfCharacterFromSet:allowed.invertedSet].location == NSNotFound &&
             ![version isEqualToString:@"."] && ![version isEqualToString:@".."]) {
+            zeroLog([@"MINECRAFT_SELECTED_VERSION: " stringByAppendingString:version]);
             NSString *support = NSSearchPathForDirectoriesInDomains(
                 NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
             clientPath = [[[[support stringByAppendingPathComponent:@"NovaCraft"]
