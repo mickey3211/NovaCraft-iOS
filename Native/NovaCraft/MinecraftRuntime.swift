@@ -64,8 +64,8 @@ struct NovaEngineRuntime: MinecraftRuntime {
         if !plan.missingLibraries.isEmpty || !plan.hasAssetIndex {
             throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
         }
-        guard let nickname = offlineNickname else {
-            throw NovaEngineLaunchError.missingJavaAndRenderer("Wybierz profil offline. Start przez konto Microsoft wymaga jeszcze przekazania tokenu gry do JVM.")
+        guard account != nil || offlineNickname != nil else {
+            throw NovaEngineLaunchError.missingJavaAndRenderer("Zaloguj się do Microsoft lub wybierz profil offline.")
         }
         guard let major = NovaJavaRuntimeRegistry.requiredMajor(for: plan),
               let java = NovaJavaRuntimeRegistry.frameworkURL(major: major),
@@ -87,7 +87,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
             at: root.appendingPathComponent("game", isDirectory: true),
             withIntermediateDirectories: true
         )
-        let args = try prepareOfflineArguments(version: version, nickname: nickname)
+        let args = try NovaLaunchArgumentBuilder.build(version: version, root: root, nickname: offlineNickname, account: account)
         // A Java VM can live for hours and may initialize deep native stack
         // frames. Never occupy a Swift cooperative-concurrency worker thread.
         // Use one dedicated POSIX-backed NSThread with a predictable stack.
