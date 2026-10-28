@@ -18,6 +18,11 @@ targets:
       - path: ZeroIntegration/Resources/lib
         type: folder
         buildPhase: resources
+      - path: ZeroIntegration/Resources/RuntimeLicenses
+        type: folder
+        buildPhase: resources
+      - path: ZeroIntegration/Resources/runtime-modules.txt
+        buildPhase: resources
     dependencies:
       - framework: ZeroIntegration/OpenJDK.xcframework
         embed: false
