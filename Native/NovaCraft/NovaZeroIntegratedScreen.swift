@@ -76,7 +76,10 @@ struct NovaZeroIntegratedScreen: View {
         .onAppear {
             if let previous = try? String(contentsOf: logURL, encoding: .utf8) {
                 result = previous
-                tested = previous.contains("NOVA_ZERO_INTEGRATED_OK")
+                // A log persisted by an older IPA must not disable the new
+                // build's test. The native atomic guard enforces one JVM
+                // creation per actual app process, not per on-disk report.
+                tested = false
             }
         }
     }
