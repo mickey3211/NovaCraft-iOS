@@ -43,7 +43,7 @@ struct NovaZeroIntegratedScreen: View {
             Section("Własny launcher + OpenJDK Zero") {
                 Label("Test wewnątrz oryginalnego NovaCraft", systemImage: "cpu")
                     .font(.headline)
-                Text("Test sprawdza działający OpenJDK Mobile Zero, moduły Java, ZIP, wątki i (jeśli w tej aplikacji pobrano grę) archiwum client.jar. Nie wykonuje kodu Minecrafta ani LWJGL.")
+                Text("Test sprawdza działający OpenJDK Mobile Zero, moduły Java, ZIP, wątki i (jeśli w tej aplikacji pobrano grę) archiwum client.jar, nagłówki klas Java i obecność klasy startowej. Nie wykonuje kodu Minecrafta ani LWJGL.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Button(action: runTest) {
                     Label("Uruchom Zero w NovaCraft", systemImage: "play.circle.fill")
@@ -68,7 +68,7 @@ struct NovaZeroIntegratedScreen: View {
                 }
             }
             Section("Dalszy rozwój") {
-                Text("Wyniki ZERO_MODULE_*, ZERO_ZIP_API_OK i MINECRAFT_CLIENT_JAR pomogą ustalić, czy brakuje bibliotek Java lub plików gry. Komunikat NOT_DOWNLOADED_IN_THIS_APP oznacza, że klient nie jest pobrany w NovaCraft Z-Dev. Nie jest to dowód uruchomienia Minecrafta ani zgodności OpenGL.")
+                Text("Wyniki ZERO_MODULE_*, ZERO_ZIP_API_OK i MINECRAFT_CLIENT_JAR pomogą ustalić, czy brakuje bibliotek Java lub plików gry. Komunikat NOT_DOWNLOADED_IN_THIS_APP oznacza, że klient nie jest pobrany w NovaCraft Z-Dev. Wynik MINECRAFT_BASE_CLASS_HEADERS dotyczy tylko nagłówków klas. MINECRAFT_MODERN_ENTRYPOINT sprawdza klasę startową nowoczesnego klienta. Nie jest to dowód uruchomienia Minecrafta ani zgodności OpenGL.")
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }

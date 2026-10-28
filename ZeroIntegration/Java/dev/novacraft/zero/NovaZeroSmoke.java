@@ -3,11 +3,12 @@ package dev.novacraft.zero;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -97,21 +98,63 @@ public final class NovaZeroSmoke {
             return out.toString();
         }
 
-        // Only parses the archive table; does NOT classload or execute game code.
+        // Reads the archive table and class headers; never loads or executes game code.
         try (ZipFile jar = new ZipFile(client)) {
             int classes = 0;
             int entries = 0;
+            int invalidHeaders = 0;
+            int unsupportedClasses = 0;
+            int maximumMajor = 0;
+            int versionedClasses = 0;
+            boolean entrypointPresent = false;
+            int runtimeMajor = Runtime.version().feature() + 44;
             java.util.Enumeration<? extends ZipEntry> all = jar.entries();
             while (all.hasMoreElements()) {
                 ZipEntry entry = all.nextElement();
                 entries++;
                 if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
+                    // Multi-release entries are not the base classes. Their selection
+                    // depends on the JAR manifest and runtime; report them separately.
+                    if (entry.getName().startsWith("META-INF/versions/")) {
+                        versionedClasses++;
+                        continue;
+                    }
                     classes++;
+                    boolean main = entry.getName().equals("net/minecraft/client/main/Main.class");
+                    entrypointPresent |= main;
+                    try (DataInputStream header = new DataInputStream(jar.getInputStream(entry))) {
+                        if (header.readInt() != 0xCAFEBABE) {
+                            invalidHeaders++;
+                            continue;
+                        }
+                        int minor = header.readUnsignedShort();
+                        int major = header.readUnsignedShort();
+                        maximumMajor = Math.max(maximumMajor, major);
+                        if (major < 45 || (major >= 56 && minor != 0 && minor != 65535)) {
+                            invalidHeaders++;
+                        } else if (major > runtimeMajor || minor == 65535) {
+                            // This probe never enables preview features.
+                            unsupportedClasses++;
+                        }
+                    } catch (IOException malformed) {
+                        invalidHeaders++;
+                    }
                 }
             }
             out.append("MINECRAFT_CLIENT_JAR: ZIP_READ_OK\n");
             out.append("MINECRAFT_ARCHIVE_ENTRIES: ").append(entries).append('\n');
             out.append("MINECRAFT_CLASS_FILES: ").append(classes).append('\n');
+            out.append("MINECRAFT_MODERN_ENTRYPOINT: ")
+               .append(entrypointPresent ? "PRESENT" : "MISSING").append('\n');
+            out.append("MINECRAFT_MAX_CLASS_MAJOR: ").append(maximumMajor).append('\n');
+            out.append("ZERO_SUPPORTED_CLASS_MAJOR: ").append(runtimeMajor).append('\n');
+            out.append("MINECRAFT_INVALID_CLASS_HEADERS: ").append(invalidHeaders).append('\n');
+            out.append("MINECRAFT_UNSUPPORTED_CLASS_HEADERS: ").append(unsupportedClasses).append('\n');
+            out.append("MINECRAFT_VERSIONED_CLASSES_NOT_CHECKED: ").append(versionedClasses).append('\n');
+            out.append("MINECRAFT_BASE_CLASS_HEADERS: ")
+               .append(classes > 0 && invalidHeaders == 0 && unsupportedClasses == 0
+                   ? "COMPATIBLE" : "FAILED").append('\n');
+            // Header checks do not verify class bodies, dependencies or native APIs.
             if (classes < 1000) {
                 out.append("MINECRAFT_ARCHIVE_WARNING: unusually few .class files\n");
             }

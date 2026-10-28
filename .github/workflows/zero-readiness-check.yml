@@ -1,0 +1,23 @@
+name: Check Zero client readiness diagnostics
+on:
+  pull_request:
+    paths:
+      - 'ZeroIntegration/Java/**'
+      - 'ZeroIntegration/Tests/**'
+      - '.github/workflows/zero-readiness-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and run client archive regression tests
+        run: |
+          javac --release 21 -d "$RUNNER_TEMP/zero-tests" ZeroIntegration/Java/dev/novacraft/zero/NovaZeroSmoke.java ZeroIntegration/Tests/NovaZeroReadinessTest.java
+          java -cp "$RUNNER_TEMP/zero-tests" NovaZeroReadinessTest

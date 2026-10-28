@@ -113,3 +113,23 @@ snapshot Zero. W szczególności:
 Źródła:
 https://github.com/openjdk/mobile
 https://github.com/openjdk-mobile/ios-tools
+
+## Kontrola nagłówków klas klienta — następny etap
+
+Diagnostyka czyta osiem bajtów nagłówka każdej bazowej klasy w `client.jar`:
+sprawdza magic `CAFEBABE`, wersję class file względem uruchomionej JVM
+oraz odrzuca klasy preview (test nie włącza preview). Raport pokazuje
+liczbę błędnych i nieobsługiwanych nagłówków, najwyższą wersję bytecode
+oraz obecność `net/minecraft/client/main/Main.class` dla nowoczesnego klienta.
+Brak tej klasy nie jest ogólnym testem poprawności dawnych wersji Minecraft.
+
+Wpisy `META-INF/versions/` są liczone osobno, bez deklarowania ich zgodności.
+`MINECRAFT_BASE_CLASS_HEADERS: COMPATIBLE` dotyczy wyłącznie nagłówków
+bazowych klas. Nie sprawdza pełnej struktury bytecode, zależności,
+podpisów archiwum ani GLFW/OpenGL i nie oznacza gotowości do gry.
+Nie są ładowane ani wykonywane klasy Minecrafta.
+
+Test regresyjny `ZeroIntegration/Tests/NovaZeroReadinessTest.java` sprawdza
+zgodny i zbyt nowy bytecode, preview, uszkodzone nagłówki/ZIP, pusty klient,
+brak klasy startowej i wpisy multi-release. Workflow `zero-readiness-check.yml`
+kompiluje i uruchamia go na Java 21.
