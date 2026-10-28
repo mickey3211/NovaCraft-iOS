@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
@@ -56,7 +58,11 @@ public final class NovaZeroSmoke {
             // Verifies java.base compression/inflation before opening Minecraft.
             ByteArrayOutputStream data = new ByteArrayOutputStream();
             try (ZipOutputStream zip = new ZipOutputStream(data, StandardCharsets.UTF_8)) {
-                zip.putNextEntry(new ZipEntry("novacraft/readiness.txt"));
+                // A ZIP compression check must not depend on the separately
+                // packaged timezone database. Keep a fixed DOS-range timestamp.
+                ZipEntry sample = new ZipEntry("novacraft/readiness.txt");
+                sample.setTimeLocal(LocalDateTime.of(2020, 1, 1, 0, 0));
+                zip.putNextEntry(sample);
                 zip.write("NOVA_ZIP_OK".getBytes(StandardCharsets.UTF_8));
                 zip.closeEntry();
             }
@@ -74,6 +80,16 @@ public final class NovaZeroSmoke {
             out.append("ZERO_ZIP_API_OK\n");
         } catch (Throwable t) {
             out.append("ZERO_ZIP_API_FAILED: ").append(t.getClass().getSimpleName()).append('\n');
+            appendFailure(out, "ZERO_ZIP_CAUSE", t);
+        }
+
+        // This is independent of ZIP so missing tzdb.dat is not misreported
+        // as a broken deflater or static native library.
+        try {
+            ZoneId.systemDefault().getRules().getOffset(java.time.Instant.EPOCH);
+            out.append("ZERO_TIMEZONE_API: OK\n");
+        } catch (Throwable t) {
+            appendFailure(out, "ZERO_TIMEZONE_API_FAILED", t);
         }
 
         try {
@@ -88,6 +104,7 @@ public final class NovaZeroSmoke {
             out.append("ZERO_JAVA_THREADS: FAILED ").append(t.getClass().getSimpleName()).append('\n');
         }
 
+        out.append("MINECRAFT_READINESS: BLOCKED (runtime and graphics integration incomplete)\n");
         if (clientJarPath == null || clientJarPath.isBlank()) {
             out.append("MINECRAFT_CLIENT_JAR: NOT_SELECTED\n");
             return out.toString();
@@ -166,4 +183,25 @@ public final class NovaZeroSmoke {
         out.append("LWJGL_OPENGL: NOT_TESTED\n");
         return out.toString();
     }
+    private static void appendFailure(StringBuilder out, String stage, Throwable failure) {
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < 4; depth++) {
+            out.append(stage).append("[").append(depth).append("]: ")
+               .append(cause.getClass().getName()).append(": ");
+            String message = cause.getMessage();
+            if (message != null) {
+                // Bound log size and keep one record per line.
+                message = message.replace('\n', ' ').replace('\r', ' ');
+                out.append(message.substring(0, Math.min(600, message.length())));
+            }
+            out.append('\n');
+            StackTraceElement[] trace = cause.getStackTrace();
+            for (int frame = 0; frame < Math.min(6, trace.length); frame++) {
+                out.append("  at ").append(trace[frame]).append('\n');
+            }
+            if (cause.getCause() == cause) break;
+            cause = cause.getCause();
+        }
+    }
+
 }

@@ -222,7 +222,11 @@ final class LauncherState: ObservableObject {
     }
 
     func launch() async {
+        #if NOVA_ZERO_INTEGRATION
+        let probeOnly = false
+        #else
         let probeOnly = UserDefaults.standard.bool(forKey: "novacraft-jvm-probe-only")
+        #endif
         guard !busy, (selectedInstalled || probeOnly) else {
             message = "Najpierw pobierz pliki wybranej wersji Minecraft."
             return

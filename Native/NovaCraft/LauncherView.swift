@@ -229,70 +229,22 @@ struct LauncherView: View {
                         Text("Pliki Minecraft mogą zajmować dużo miejsca. Pobieranie wykorzystuje aktywne połączenie internetowe.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
-                    Section("OpenJDK Zero — bez JIT (integracja testowa)") {
+                    Section("Pomoc") {
                         NavigationLink {
                             NovaZeroIntegratedScreen()
                         } label: {
-                            Label("Uruchom test Java Zero w NovaCraft", systemImage: "cpu.fill")
-                                .foregroundStyle(.green)
+                            Label("Raport diagnostyczny", systemImage: "doc.text.magnifyingglass")
                         }
-                        Text("To osobny wariant deweloperski NovaCraft. Pokazuje, czy bez-JIT Java działa w Twoim prawdziwym launcherze SwiftUI. Nie uruchamia jeszcze Minecraft Java.")
+                        Text("Raport zapisuje się przy próbie uruchomienia gry. Możesz go przejrzeć i udostępnić.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                     Section("NovaEngine — autorski silnik 3D") {
                         NavigationLink {
                             NovaVoxelEngineScreen()
                         } label: {
-                            Label("Uruchom autorski świat NovaEngine", systemImage: "square.3.layers.3d.top.filled")
-                                .foregroundStyle(.cyan)
+                            Label("Autorski świat NovaEngine", systemImage: "square.3.layers.3d.top.filled")
                         }
-                        Text("Własny renderer Metal, siatka voxel, widoczne ściany, perspektywa 3D, sterowanie dotykiem. To oddzielny prototyp, nie działający jeszcze Minecraft Java.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        NavigationLink {
-                            NovaMetalTestScreen()
-                        } label: {
-                            Label("Test renderowania Metal", systemImage: "cube.transparent.fill")
-                        }
-                        NavigationLink {
-                            NovaBlockTestScreen()
-                        } label: {
-                            Label("Test grafiki 3D — obracający się blok", systemImage: "cube.fill")
-                        }
-                        Text(NovaHardwareDiagnostics.metalStatus())
-                        Text(NovaHardwareDiagnostics.javaStatus())
-                        Text(NovaJVMProbe.report())
-                        Button {
-                            Task { await state.testJVMStartup() }
-                        } label: {
-                            Label("Sprawdź biblioteki Java 21", systemImage: "cpu")
-                        }
-                        Text("Bezpieczny test ładowania libjli i libjvm. Nie uruchamia drugiej maszyny Java ani gry. Wynik znajdziesz na karcie Start.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Toggle("Testuj tylko JVM (bez Minecrafta)", isOn: $jvmProbeOnly)
-                            .disabled(state.busy)
-                        Button {
-                            jvmProbeOnly = true
-                            Task { await state.launch() }
-                        } label: {
-                            Label("Uruchom samą Java 21 (test)", systemImage: "play.circle")
-                        }
-                        .disabled(state.busy)
-                        Text("Test nie wymaga pobranego Minecrafta ani konta. Sprawdza, czy JVM potrafi uruchomić jedną małą klasę Java; test może zamknąć aplikację, jeśli problem leży w natywnym HotSpot.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Text("Tryb diagnostyczny sprawdza, czy Java uruchomi kod JVM_PROBE_OK. Po teście wyłącz przełącznik i ponownie uruchom aplikację, bo JVM nie może wystartować drugi raz w tym samym procesie.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Label("Start Java 21 przez JNI — diagnostyka iOS", systemImage: "cpu")
-                            .foregroundStyle(.orange)
-                        Text("Błąd ponownego wejścia do SwiftUI przez JLI został ominięty, ale najnowsze logi pokazują nadal możliwą awarię HotSpot podczas tworzenia maszyny Java. Nowy test JVM i opcje pamięci mają zawęzić przyczynę, a nie gwarantować uruchomienie Minecrafta.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        NavigationLink {
-                            NovaJVMDiagnosticsScreen()
-                        } label: {
-                            Label("Pełny raport awarii Java 21", systemImage: "doc.text.magnifyingglass")
-                        }
-                        Text("Jeżeli gra znika podczas JNI_CreateJavaVM, eksportuj raport HotSpot hs_err_pid i dziennik Java. Bez raportu nie da się rozróżnić błędu pamięci, podpisu bibliotek i ograniczeń JIT.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        Text("To test sprzętu, nie grywalny silnik Minecraft Java.")
+                        Text("Oddzielny prototyp świata 3D. Nie jest klientem Minecraft Java.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
@@ -504,22 +456,6 @@ struct LauncherView: View {
                 .background(Color.cyan.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
             }
 
-            // The user's crash log showed a full Minecraft launch, not the
-            // independent low-memory Java probe. Keep test and game separate.
-            Button {
-                jvmProbeOnly = true
-                Task { await state.launch() }
-            } label: {
-                Label("Test Java 21 — bez Minecrafta", systemImage: "cpu")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 5)
-            }
-            .buttonStyle(.bordered)
-            .disabled(state.busy)
-            Text("Najpierw uruchom ten test. Użyje wyłącznie małej klasy Java i 256 MB pamięci. Jeśli aplikacja się wyłączy, otwórz Ustawienia → Pełny raport awarii Java 21.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
             Button {
                 // Launching Minecraft must never silently inherit a JVM-test
                 // toggle from the preceding diagnostic attempt.
@@ -577,18 +513,7 @@ struct LauncherView: View {
                         }
                         .disabled(state.busy)
 
-                        Button {
-                            state.inspectEngine()
-                        } label: {
-                            Label("Sprawdź zgodność NovaEngine", systemImage: "checkmark.shield")
-                        }
 
-                        Button {
-                            state.prepareOfflineLaunch()
-                        } label: {
-                            Label("Przygotuj start Java", systemImage: "terminal")
-                        }
-                        .disabled(state.activeOfflineProfile == nil)
                     }
                     Divider()
                     Label("Diagnostyka JVM i grafiki", systemImage: "cpu")

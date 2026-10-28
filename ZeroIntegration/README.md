@@ -133,3 +133,23 @@ Test regresyjny `ZeroIntegration/Tests/NovaZeroReadinessTest.java` sprawdza
 zgodny i zbyt nowy bytecode, preview, uszkodzone nagłówki/ZIP, pusty klient,
 brak klasy startowej i wpisy multi-release. Workflow `zero-readiness-check.yml`
 kompiluje i uruchamia go na Java 21.
+
+## Build 19 — jeden raport, bez przycisków testów
+
+Usunięto ręczne testy JVM/Metal z ustawień i test Java 21 z ekranu Start.
+Przycisk Graj uruchamia sprawdzenie Zero raz w procesie, na dedykowanym
+wątku. Kolejne naciśnięcia używają tego samego wyniku. Ustawienia zawierają
+jeden ekran Raport diagnostyczny z udostępnianiem istniejącego logu.
+Zmiana wersji po uruchomieniu JVM wymaga restartu i jest jawnie zgłaszana.
+
+Paczka upstream zawiera tylko java.base; potwierdza to workflow
+openjdk-mobile/ios-tools combine-xcframework.yml (`--add-modules java.base`).
+Archiwum java_bundle-device zawiera tylko release i lib/modules, bez tzdb.dat.
+Nie dodajemy do niego niezgodnych modułów z desktopowego JDK.
+Pełne środowisko iOS nadal wymaga zbudowania/portowania brakujących modułów.
+
+ZIP używa stałego lokalnego znacznika czasu, żeby nie wymagał tzdb do
+sprawdzenia samej kompresji. Osobna automatyczna kontrola stref czasowych
+ujawnia brak tzdb. Dokładna przyczyna i stos błędów ZIP/stref trafiają do
+raportu; nie uznajemy tego za potwierdzoną naprawę na iPhonie przed jego
+uruchomieniem. Minecraft pozostaje zablokowany z wyraźnym komunikatem.
