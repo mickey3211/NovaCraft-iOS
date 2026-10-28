@@ -1,7 +1,7 @@
 name: Build real NovaCraft SwiftUI with statically linked Zero JVM (developer test)
 on:
   push:
-    branches: [nova-zero-integration]
+    branches: [nova-zero-integration, work/zero-client-readiness]
     paths:
       - ".github/workflows/nova-zero-integration.yml"
       - "ZeroIntegration/**"
@@ -88,7 +88,7 @@ jobs:
               assert base+"NovaZeroSmoke.jar" in names
               assert base+"lib/lib/modules" in names
               info=plistlib.loads(z.read(base+"Info.plist"))
-              assert info["CFBundleVersion"]=="17"
+              assert info["CFBundleVersion"]=="18"
               assert info["CFBundleIdentifier"]=="pl.novacraft.zero.integrated"
               assert info["CFBundleDisplayName"]=="NovaCraft Z-Dev"
               assert b"NOVA_ZERO_INTEGRATED_OK" in z.read(base+"NovaCraft")
@@ -99,6 +99,8 @@ jobs:
                   assert b"ZERO_ZIP_API_OK" in code
                   assert b"MINECRAFT_CLIENT_JAR" in code
                   assert b"ZERO_MODULE_" in code
+                  assert b"MINECRAFT_BASE_CLASS_HEADERS" in code
+                  assert b"MINECRAFT_MODERN_ENTRYPOINT" in code
           PY
       - name: Store compiler logs when build fails
         if: failure()
