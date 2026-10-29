@@ -1,0 +1,36 @@
+name: Build NovaCraft iOS graphics dependency
+on:
+  push:
+    branches: [work/ios27-client-integration]
+    paths:
+      - scripts/build-mobileglues-ios.sh
+      - .github/workflows/build-zero-graphics.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nova-graphics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobileglues:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile pinned renderer dependency for iPhone
+        run: |
+          set -euo pipefail
+          bash scripts/build-mobileglues-ios.sh 2>&1 | tee "$RUNNER_TEMP/mobileglues-build.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-MobileGlues-iOS-component-not-IPA
+          path: ${{ runner.temp }}/nova-graphics-component
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve compiler output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-MobileGlues-build-log
+          path: ${{ runner.temp }}/mobileglues-build.log
+          retention-days: 7
