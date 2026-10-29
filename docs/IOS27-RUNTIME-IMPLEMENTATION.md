@@ -1,6 +1,6 @@
 # NovaCraft: implementation findings for iOS 27
 
-Reviewed 2026-10-28. Target: iPhone 13, iOS 27.0.1, Minecraft Java 1.21.5.
+Reviewed 2026-10-29. Target: iPhone 13, iOS 27.0.1, Minecraft Java 1.21.5.
 No Amethyst application source is imported or rebranded.
 
 ## What existing launchers actually provide
@@ -12,7 +12,7 @@ No Amethyst application source is imported or rebranded.
 | LWJGL | iOS-specific Java/native bindings; desktop classifier artifacts are replaced | Downloading Mojang's desktop jars is insufficient; the iOS fork is a separate dependency |
 | Window/input | Launcher-owned native context, window and input bridge | The original NovaEngine voxel demo does not implement GLFW |
 | Graphics | GL4ES, MobileGlues, ANGLE or Mesa/MoltenVK paths depending on game/version | A Metal view alone cannot satisfy desktop OpenGL calls. An independent bridge plus a separately licensed translator is required |
-| Accounts | Microsoft game entitlement and game token passed to Java | NovaCraft already obtains an account token, but the existing offline-only argument builder does not yet carry it into a game launch |
+| Accounts | Microsoft game entitlement and game token passed to Java | Argument builder now carries the account UUID, username and token; CI verifies online/offline arguments and token redaction. Actual Zero client execution remains blocked |
 | New game versions | Changing native library requirements | Keep 1.21.5 as initial target; 26.3 has an SDL dependency beyond the existing 3.3.3 iOS LWJGL set |
 
 ## Evidence specifically about iOS 27
@@ -34,8 +34,11 @@ reviewed source and matching native libraries.
 `scripts/build-nova-zero-runtime.sh` pins OpenJDK/mobile and ios-tools commits
 and verifies the libffi binary digest. It builds the VM and selected class
 modules from one source revision, uses the matching host jmod/jlink tools,
-packages the generated tzdb.dat and Java configuration, and checks the module
-inventory. It preserves third-party licenses and source identifiers.
+packages the generated tzdb.dat, trust store, security data and per-module
+configuration, and checks the module inventory. Matching macOS tools are built
+separately to avoid the cross-build configuration inheriting Linux linker flags.
+The build generates linker roots for exported Java JNI methods and per-library
+initializers so static archive members remain discoverable by the JVM. It preserves third-party licenses and source identifiers.
 
 Required image modules: java.base, java.desktop, java.datatransfer, java.prefs,
 java.logging, java.xml, java.net.http, java.management, java.naming,
@@ -51,8 +54,10 @@ execution, graphics compatibility or Minecraft performance.
 
 1. Runtime: successful source build and packaged image contains tzdb and the
    required modules; validate timezone and actual dependency loading on Zero.
-2. Classpath/auth: include the installed client and allowed libraries; pass
-   Microsoft identity/token without logging secrets; fail on missing files.
+2. Classpath/auth: connect the account-aware argument builder to the Zero
+   client invocation; include the installed client and allowed iOS libraries.
+   Argument identity checks pass in CI, but the Zero path still runs only the
+   existing readiness routine.
 3. GLFW bridge: native window/context creation, buffer swaps, resize events,
    keyboard/mouse/touch callbacks and function lookup on the correct thread.
 4. Graphics: compile a reviewed translator for iOS ARM64 and connect it to the
@@ -65,6 +70,7 @@ user-facing launch remains Play with one saved diagnostic report.
 
 ## Primary sources
 
+- https://github.com/HynisDev/Hynis-JE (another Amethyst fork, documents JIT; not an independent no-JIT graphics implementation)
 - https://github.com/PojavLauncherTeam/PojavLauncher_iOS (archived predecessor)
 - https://github.com/AngelAuraMC/Amethyst-iOS/blob/main/README.md
 - https://wiki.angelauramc.dev/wiki/getting_started/INSTALL

@@ -28,6 +28,9 @@ targets:
         embed: false
         link: true
       - sdk: libz.tbd
+    configFiles:
+      Debug: ZeroIntegration/runtime-native-symbols.xcconfig
+      Release: ZeroIntegration/runtime-native-symbols.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: pl.novacraft.zero.integrated
@@ -41,5 +44,5 @@ targets:
         INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads: NO
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CODE_SIGN_STYLE: Automatic
-        OTHER_LDFLAGS: -lc++
+        OTHER_LDFLAGS: "$(inherited) -lc++ $(NOVA_RUNTIME_SYMBOLS)"
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) NOVA_ZERO_INTEGRATION"
