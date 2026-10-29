@@ -31,9 +31,10 @@ enum NovaLaunchArgumentsError: LocalizedError {
 }
 
 enum NovaLaunchArgumentBuilder {
-    static func build(version: String, root: URL, nickname: String?) throws -> NovaLaunchArguments {
+    static func build(version: String, root: URL, nickname: String?, account: MinecraftAccount? = nil) throws -> NovaLaunchArguments {
         let plan = try NovaEngineCore.inspect(versionID: version, root: root)
-        guard let nickname, OfflineProfile.isValid(nickname) else {
+        let playerName = account?.username ?? nickname
+        guard let nickname = playerName, OfflineProfile.isValid(nickname) else {
             throw NovaLaunchArgumentsError.missingIdentity
         }
         let path = root.appendingPathComponent("versions", isDirectory: true)
@@ -46,18 +47,32 @@ enum NovaLaunchArgumentBuilder {
         let assetID = (json["assetIndex"] as? [String: Any])?["id"] as? String ?? version
         let assetRoot = root.appendingPathComponent("assets", isDirectory: true)
         let gameDir = root.appendingPathComponent("game", isDirectory: true)
-        let uuid = offlineUUID(for: nickname)
+        let uuid: String
+        let accessToken: String
+        if let account {
+            let normalized = account.uuid.replacingOccurrences(of: "-", with: "").lowercased()
+            guard normalized.count == 32,
+                  normalized.allSatisfy({ "0123456789abcdef".contains($0) }),
+                  !account.minecraftAccessToken.isEmpty else {
+                throw NovaLaunchArgumentsError.missingIdentity
+            }
+            uuid = normalized
+            accessToken = account.minecraftAccessToken
+        } else {
+            uuid = offlineUUID(for: nickname).uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+            accessToken = "0"
+        }
         let values: [String: String] = [
             "auth_player_name": nickname,
             "version_name": version,
             "game_directory": gameDir.path,
             "assets_root": assetRoot.path,
             "assets_index_name": assetID,
-            "auth_uuid": uuid.uuidString.replacingOccurrences(of: "-", with: "").lowercased(),
-            "auth_access_token": "0",
+            "auth_uuid": uuid,
+            "auth_access_token": accessToken,
             "clientid": "",
             "auth_xuid": "",
-            "user_type": "legacy",
+            "user_type": account == nil ? "legacy" : "msa",
             "version_type": "release",
             "user_properties": "{}",
             "resolution_width": "1280",

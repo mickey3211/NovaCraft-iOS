@@ -1,0 +1,22 @@
+name: Verify Minecraft launch identity
+on:
+  push:
+    branches: [work/ios27-client-integration]
+  pull_request:
+    paths:
+      - 'Native/NovaCraft/NovaLaunchArgumentBuilder.swift'
+      - 'Native/NovaCraft/MinecraftAccount.swift'
+      - 'tests/NovaLaunchIdentityTests.swift'
+      - '.github/workflows/launch-identity-check.yml'
+permissions:
+  contents: read
+jobs:
+  identity:
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify online identity and offline fallback without real credentials
+        run: |
+          swiftc Native/NovaCraft/MinecraftAccount.swift Native/NovaCraft/OfflineProfiles.swift Native/NovaCraft/NovaEngineCore.swift Native/NovaCraft/NovaLaunchArgumentBuilder.swift tests/NovaLaunchIdentityTests.swift -o "$RUNNER_TEMP/nova-identity"
+          "$RUNNER_TEMP/nova-identity"

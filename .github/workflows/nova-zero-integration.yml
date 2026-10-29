@@ -57,6 +57,7 @@ jobs:
           name: NovaCraft-Zero-Runtime-Source-Build
           path: |
             ZeroIntegration/OpenJDK.xcframework
+            ZeroIntegration/runtime-native-symbols.xcconfig
             ZeroIntegration/Resources/lib
             ZeroIntegration/Resources/runtime-modules.txt
             ZeroIntegration/Resources/RuntimeLicenses
@@ -96,6 +97,8 @@ jobs:
               assert base+"NovaZeroSmoke.jar" in names
               assert base+"lib/lib/modules" in names
               assert base+"lib/lib/tzdb.dat" in names
+              assert base+"lib/lib/security/cacerts" in names
+              assert base+"lib/conf/security/java.security" in names
               info=plistlib.loads(z.read(base+"Info.plist"))
               assert info["CFBundleVersion"]=="20"
               assert info["CFBundleIdentifier"]=="pl.novacraft.zero.integrated"
