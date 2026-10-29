@@ -82,3 +82,24 @@ user-facing launch remains Play with one saved diagnostic report.
 - https://github.com/openjdk/mobile
 - https://github.com/openjdk-mobile/ios-tools/blob/main/.github/workflows/combine-xcframework.yml
 - https://github.com/openjdk-mobile/ios-tools/blob/main/docs/patches/symbol-keeper.md
+
+## Build evidence (2026-10-29)
+
+- Run 40861514386 compiled the macOS host tools and iOS static Zero VM plus
+  class modules successfully. Its packaging then failed on Bash 3's handling
+  of an empty array with nounset; the next revision avoids empty arrays.
+- The matching host JDK identifies itself as 28-internal. This is a runtime
+  version, not a change to the Java 21 classfile target (major 65). Device
+  compatibility with this new runtime remains unverified.
+- Run 40863884566 successfully built the separately licensed MobileGlues
+  dependency, verified iOS ARM64 and exported GL entrypoints, and saved both
+  the library and corresponding source archive. This component has not been
+  linked into NovaCraft and supplies neither a window nor the GLFW bridge.
+- Run 40863884598 passed identity argument checks.
+
+Graphics build: `scripts/build-mobileglues-ios.sh`, pinned MobileGlues
+fcdf91456c1b3b5e77e5264cffe682595c13113f and ios-cmake
+b36d5bce6f9a2d11d9f144bd5882ba31cfdca420. The selected revision includes
+Apple-specific linker fixes. The build uses upstream EGL/GLES frameworks
+for linkage; their integration/provenance and signing must be completed
+before distributing a complete game IPA.
