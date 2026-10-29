@@ -35,10 +35,22 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/icons"
           "$RUNNER_TEMP/icons/bin/python" -m pip install --disable-pip-version-check pillow
           "$RUNNER_TEMP/icons/bin/python" scripts/generate-app-icon.py
+      - name: Restore matching macOS build tools
+        id: host-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/nova-host-jdk
+          key: nova-host-jdk-v1-c1ed06aaef34c8dccf71e236d1ffa20918a77cfb-${{ runner.os }}-${{ runner.arch }}
       - name: Build complete matching Zero runtime from pinned OpenJDK sources
         run: |
           set -euo pipefail
           bash scripts/build-nova-zero-runtime.sh 2>&1 | tee "$RUNNER_TEMP/zero-runtime-build.log"
+      - name: Cache successfully produced host tools even if iOS build fails
+        if: always() && steps.host-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/nova-host-jdk
+          key: nova-host-jdk-v1-c1ed06aaef34c8dccf71e236d1ffa20918a77cfb-${{ runner.os }}-${{ runner.arch }}
       - name: Preserve built runtime for reproducibility
         uses: actions/upload-artifact@v4
         with:

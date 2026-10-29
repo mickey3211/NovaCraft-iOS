@@ -26,21 +26,31 @@ FFI_LIB="$(find "$WORK/ffi" -name libffi.a -print -quit)"
 FFI_HEADER="$(find "$WORK/ffi" -name ffi.h -print -quit)"
 test -n "$FFI_LIB" && test -n "$FFI_HEADER"
 cd "$WORK/mobile"
+# Do not let the iOS cross configuration generate its own macOS build-JDK:
+# that path inherits non-Darwin library suffix/linker flags in this revision.
+# Build normal host tools first, before adding iOS-only symbol references.
+HOST_JDK="$RUNNER_TEMP/nova-host-jdk"
+if [[ ! -x "$HOST_JDK/bin/jmod" ]]; then
+  bash configure --with-conf-name=nova-host --with-boot-jdk="$JAVA_HOME" \
+    --disable-warnings-as-errors --with-native-debug-symbols=none
+  gmake CONF=nova-host JOBS=3 jdk-image
+  ditto "$WORK/mobile/build/nova-host/images/jdk" "$HOST_JDK"
+fi
+"$HOST_JDK/bin/java" -version
 cp "$WORK/ios-tools/openjdk-ext/src/hotspot/symbol_keeper.cpp" src/hotspot/os/bsd/
 bash configure --with-conf-name=nova-ios-zero --disable-warnings-as-errors \
   --openjdk-target=aarch64-macos-ios --with-jvm-variants=zero \
-  --with-boot-jdk="$JAVA_HOME" --with-native-debug-symbols=none \
+  --with-boot-jdk="$JAVA_HOME" --with-build-jdk="$HOST_JDK" --with-native-debug-symbols=none \
   --with-sysroot="$(xcrun --sdk iphoneos --show-sdk-path)" \
   --with-libffi-include="$(dirname "$FFI_HEADER")" --with-libffi-lib="$(dirname "$FFI_LIB")" \
   --with-cups-include="$(xcrun --sdk macosx --show-sdk-path)/usr/include"
 TARGETS=()
 for module in "${MODULES[@]}"; do TARGETS+=("$module-java"); done
-gmake CONF=nova-ios-zero JOBS=3 static-libs-image "${TARGETS[@]}" java.base-copy java.base-gendata create-buildjdk
+gmake CONF=nova-ios-zero JOBS=3 static-libs-image "${TARGETS[@]}" java.base-copy java.base-gendata
 BUILD="$WORK/mobile/build/nova-ios-zero"
-# The matching host build tools are built from the exact same source revision.
-JMOD="$(find "$BUILD" -path '*buildjdk*' -type f -name jmod -perm +111 -print -quit)"
-test -n "$JMOD"
-BIN="$(dirname "$JMOD")"
+# Never package the host JVM or native macOS libraries into the iOS app.
+BIN="$HOST_JDK/bin"
+JMOD="$BIN/jmod"
 "$JMOD" --version
 mkdir -p "$WORK/jmods" "$WORK/base-data"
 test -s "$BUILD/jdk/lib/tzdb.dat"
