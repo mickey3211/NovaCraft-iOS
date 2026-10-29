@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdatomic.h>
 
-extern void loadfunctions(void);
 
 static atomic_bool zeroStarted = false;
 
@@ -51,8 +50,7 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
         zeroLog([NSString stringWithFormat:@"APP_BUILD: %@", [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]]);
         zeroLog([NSString stringWithFormat:@"REPORT_DATE: %@", NSDate.date]);
         zeroLog(@"ZERO_INTEGRATION: static OpenJDK Mobile Zero linked into NovaCraft.");
-        zeroLog(@"ZERO_STEP: loadfunctions()");
-        loadfunctions();
+        zeroLog(@"ZERO_STEP: JNI entrypoints retained from matching static runtime at link time");
 
         NSString *classpath = [@"-Djava.class.path=" stringByAppendingString:jar];
         const char *opts[] = {classpath.UTF8String, "-Xms16m", "-Xmx128m"};

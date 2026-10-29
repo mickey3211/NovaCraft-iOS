@@ -36,7 +36,7 @@ struct NovaEngineRuntime: MinecraftRuntime {
             )
         }
         throw NovaEngineLaunchError.missingJavaAndRenderer(
-            "Zapisano raport uruchomienia. Ten build zawiera ograniczone środowisko Java Zero; pełne moduły Java i obsługa grafiki Minecraft są nadal niedostępne. Szczegóły: Ustawienia → Raport diagnostyczny."
+            "Zapisano raport uruchomienia Java Zero. Uruchamianie Minecrafta pozostaje zablokowane: integracja okna GLFW i grafiki OpenGL nie jest jeszcze gotowa. Szczegóły: Ustawienia → Raport diagnostyczny."
         )
         #else
         // The pure VM test must be possible without downloading Minecraft,

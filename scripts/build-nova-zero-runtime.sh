@@ -37,7 +37,9 @@ if [[ ! -x "$HOST_JDK/bin/jmod" ]]; then
   ditto "$WORK/mobile/build/nova-host/images/jdk" "$HOST_JDK"
 fi
 "$HOST_JDK/bin/java" -version
-cp "$WORK/ios-tools/openjdk-ext/src/hotspot/symbol_keeper.cpp" src/hotspot/os/bsd/
+# JNI roots are generated from actual symbols below. The ios-tools keeper
+# references removed methods and must not be injected into this revision.
+python3 "$ROOT/scripts/patch-openjdk-zero.py" "$WORK/mobile"
 bash configure --with-conf-name=nova-ios-zero --disable-warnings-as-errors \
   --openjdk-target=aarch64-macos-ios --with-jvm-variants=zero \
   --with-boot-jdk="$JAVA_HOME" --with-build-jdk="$HOST_JDK" --with-native-debug-symbols=none \
@@ -119,3 +121,5 @@ mkdir -p "$ROOT/ZeroIntegration/Resources/RuntimeLicenses"
 cp LICENSE ASSEMBLY_EXCEPTION ADDITIONAL_LICENSE_INFO "$ROOT/ZeroIntegration/Resources/RuntimeLicenses/"
 cp "$WORK/ios-tools/LICENSE" "$ROOT/ZeroIntegration/Resources/RuntimeLicenses/ios-tools-LICENSE"
 printf 'OpenJDK/mobile: %s\nios-tools: %s\n' "$MOBILE_REV" "$TOOLS_REV" > "$ROOT/ZeroIntegration/Resources/RuntimeLicenses/SOURCES.txt"
+
+cp "$ROOT/scripts/patch-openjdk-zero.py" "$ROOT/ZeroIntegration/Resources/RuntimeLicenses/"
