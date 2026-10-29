@@ -58,7 +58,9 @@ cp "$BUILD/jdk/lib/tzdb.dat" "$WORK/base-data/"
 # TLS needs the generated trust store and public-suffix/security data as well
 # as classes. Keep these data files, never host or target dynamic libraries.
 test -s "$BUILD/jdk/lib/security/cacerts"
-ditto "$BUILD/jdk/lib/security" "$WORK/base-data/security"
+# The exploded JDK uses relative symlinks into support/. Resolve them
+# before moving files, or jmod sees dangling paths such as blocked.certs.
+cp -RL "$BUILD/jdk/lib/security" "$WORK/base-data/security"
 test -s "$BUILD/jdk/conf/security/java.security"
 for module in "${MODULES[@]}"; do
   test -s "$BUILD/jdk/modules/$module/module-info.class"
