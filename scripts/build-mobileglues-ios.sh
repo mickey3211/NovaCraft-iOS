@@ -28,7 +28,7 @@ cmake -S "$WORK/source/MobileGlues-cpp" -B "$WORK/build" \
 cmake --build "$WORK/build" --config RelWithDebInfo --target mobileglues --parallel 3
 LIB="$WORK/build/libmobileglues.dylib"
 test -s "$LIB"
-xcrun lipo -verify_arch arm64 "$LIB"
+xcrun lipo "$LIB" -verify_arch arm64
 xcrun vtool -show-build "$LIB" | tee "$OUT/platform.txt"
 grep -q 'platform IOS' "$OUT/platform.txt"
 xcrun nm -gUj "$LIB" > "$OUT/exports.txt"

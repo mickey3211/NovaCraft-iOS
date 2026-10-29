@@ -62,7 +62,7 @@ ditto "$BUILD/jdk/lib/security" "$WORK/base-data/security"
 test -s "$BUILD/jdk/conf/security/java.security"
 for module in "${MODULES[@]}"; do
   test -s "$BUILD/jdk/modules/$module/module-info.class"
-  EXTRA=()
+  EXTRA=(--class-path "$BUILD/jdk/modules/$module" --target-platform ios-aarch64)
   if [[ "$module" == java.base ]]; then
     EXTRA+=(--libs "$WORK/base-data")
   fi
@@ -70,8 +70,7 @@ for module in "${MODULES[@]}"; do
   if [[ -d "$CONFIG" ]]; then EXTRA+=(--config "$CONFIG"); fi
   LEGAL="$BUILD/support/modules_legal/$module"
   if [[ -d "$LEGAL" ]]; then EXTRA+=(--legal-notices "$LEGAL"); fi
-  "$JMOD" create --class-path "$BUILD/jdk/modules/$module" --target-platform ios-aarch64 \
-    "${EXTRA[@]}" "$WORK/jmods/$module.jmod"
+  "$JMOD" create "${EXTRA[@]}" "$WORK/jmods/$module.jmod"
 done
 MODULE_CSV="$(IFS=,; echo "${MODULES[*]}")"
 "$BIN/jlink" --module-path "$WORK/jmods" --add-modules "$MODULE_CSV" \
@@ -81,13 +80,18 @@ for module in "${MODULES[@]}"; do grep -F "Module: $module" "$WORK/modules-inven
 test -s "$WORK/runtime/lib/tzdb.dat"
 test -s "$WORK/runtime/lib/security/cacerts"
 test -s "$WORK/runtime/conf/security/java.security"
-# Retain all built static class libraries; final linkage resolves only references.
+# Include native libraries for the selected modules, not JLI, JVMTI agents,
+# smart cards or other unselected desktop modules.
 mkdir -p "$WORK/static" "$ROOT/ZeroIntegration/Resources" "$WORK/headers"
 cp "$BUILD/jdk/include/"*.h "$WORK/headers/"
 cp "$BUILD/jdk/include/ios/"*.h "$WORK/headers/"
-libtool -static -o "$WORK/static/libNovaOpenJDK.a" \
-  "$BUILD/images/static-libs/lib/zero/libjvm.a" \
-  "$BUILD/images/static-libs/lib/"*.a "$FFI_LIB"
+NATIVE_LIBS=("$BUILD/images/static-libs/lib/zero/libjvm.a" "$FFI_LIB")
+for library in java verify zip jimage net nio management prefs syslookup fallbackLinker; do
+  archive="$BUILD/images/static-libs/lib/lib${library}.a"
+  test -s "$archive"
+  NATIVE_LIBS+=("$archive")
+done
+libtool -static -o "$WORK/static/libNovaOpenJDK.a" "${NATIVE_LIBS[@]}"
 # JNI resolves class-library entrypoints by name. Archive membership alone
 # does not retain them in a statically linked app; root exactly the exported
 # JNI symbols, including per-library initialization, without force-loading JLI.
