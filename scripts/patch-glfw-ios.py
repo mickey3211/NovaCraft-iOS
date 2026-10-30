@@ -94,7 +94,7 @@ p.write_text(p.read_text()+'''
 enable_language(OBJC)
 target_sources(glfw PRIVATE nova_ios_surface.m)
 set_source_files_properties(nova_ios_surface.m PROPERTIES COMPILE_FLAGS "-fobjc-arc")
-target_link_libraries(glfw PRIVATE "-framework UIKit" "-framework Foundation" "-framework QuartzCore")
+target_link_libraries(glfw PRIVATE "-framework UIKit" "-framework Foundation" "-framework QuartzCore" "-framework CoreGraphics")
 target_compile_definitions(glfw PRIVATE
     _GLFW_EGL_LIBRARY="@rpath/libmobileglues.dylib"
     _GLFW_OPENGL_LIBRARY="@rpath/libmobileglues.dylib")
