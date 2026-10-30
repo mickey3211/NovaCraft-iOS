@@ -1,0 +1,32 @@
+name: Build NovaCraft UIKit GLFW bridge
+on:
+  push:
+    branches: [work/ios27-client-integration]
+    paths:
+      - 'Graphics/GLFW/**'
+      - 'scripts/build-glfw-ios.sh'
+      - 'scripts/patch-glfw-ios.py'
+      - '.github/workflows/build-glfw-ios.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  glfw:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build iOS ARM64 window and input bridge
+        run: |
+          set -euo pipefail
+          bash scripts/build-glfw-ios.sh 2>&1 | tee "$RUNNER_TEMP/nova-glfw-build.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-UIKit-GLFW-component-not-IPA
+          path: ${{ runner.temp }}/nova-glfw-component
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NovaCraft-UIKit-GLFW-build-log
+          path: ${{ runner.temp }}/nova-glfw-build.log
