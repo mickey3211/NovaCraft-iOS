@@ -2,7 +2,7 @@ name: Build NovaCraft Zero client launch IPA
 on:
   push:
     branches: [work/zero-client-launch]
-    paths: ['Native/**', 'scripts/**', 'project.yml', '.github/workflows/zero-client-ipa.yml']
+    paths: ['Native/**', 'Graphics/**', 'ZeroIntegration/Java/**', 'scripts/**', 'project.yml', '.github/workflows/zero-client-ipa.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,12 +23,11 @@ jobs:
           run-id: 41031026986
           name: NovaCraft-Zero-Runtime-Source-Build
           path: ZeroIntegration
-      - uses: actions/download-artifact@v4
-        with:
-          github-token: ${{ github.token }}
-          run-id: 41017352230
-          name: NovaCraft-UIKit-GLFW-component-not-IPA
-          path: Components/glfw
+      - name: Build UIKit GLFW with frame presentation tracking
+        run: |
+          bash scripts/build-glfw-ios.sh
+          mkdir -p Components/glfw
+          cp -R "$RUNNER_TEMP/nova-glfw-component/." Components/glfw/
       - uses: actions/download-artifact@v4
         with:
           github-token: ${{ github.token }}
@@ -49,7 +48,7 @@ jobs:
           "$RUNNER_TEMP/icons/bin/pip" install pillow
           "$RUNNER_TEMP/icons/bin/python" scripts/generate-app-icon.py
           mkdir -p "$RUNNER_TEMP/classes"
-          javac --release 21 -d "$RUNNER_TEMP/classes" ZeroIntegration/Java/dev/novacraft/zero/NovaZeroSmoke.java
+          javac --release 21 -d "$RUNNER_TEMP/classes" ZeroIntegration/Java/dev/novacraft/zero/NovaZeroSmoke.java ZeroIntegration/Java/dev/novacraft/client/NovaClientEntrypoint.java
           jar cf ZeroIntegration/Resources/NovaZeroSmoke.jar -C "$RUNNER_TEMP/classes" .
       - name: Compile client launch integration
         run: |
@@ -66,10 +65,10 @@ jobs:
           bash scripts/package-zero-client.sh "$APP" Components 2>&1 | tee "$RUNNER_TEMP/nova-client-package.log"
           mkdir -p "$RUNNER_TEMP/client-ipa/Payload" dist
           ditto "$APP" "$RUNNER_TEMP/client-ipa/Payload/NovaCraft.app"
-          (cd "$RUNNER_TEMP/client-ipa" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Build21-Zero-Client-UNSIGNED.ipa" Payload)
+          (cd "$RUNNER_TEMP/client-ipa" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Build22-Zero-Client-UNSIGNED.ipa" Payload)
       - uses: actions/upload-artifact@v4
         with:
-          name: NovaCraft-Build21-Zero-Client-UNSIGNED-IPA
+          name: NovaCraft-Build22-Zero-Client-UNSIGNED-IPA
           path: dist/*.ipa
           if-no-files-found: error
       - uses: actions/upload-artifact@v4

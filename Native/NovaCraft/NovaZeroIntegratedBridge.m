@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 
 static atomic_bool zeroStarted = false;
@@ -176,8 +178,24 @@ int nova_zero_run_client(const char *configurationJSON) {
         [@"NovaCraft client launch\n" writeToFile:zeroLogURL() atomically:YES encoding:NSUTF8StringEncoding error:nil];
         NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
         NSString *output = [documents stringByAppendingPathComponent:@"NovaCraft-java-output.log"];
-        freopen(output.fileSystemRepresentation, "w", stderr);
+        // One shared append descriptor prevents stdout and stderr overwriting
+        // each other. Java logging often writes to stdout before latest.log exists.
+        fflush(stdout); fflush(stderr);
+        int logFD = open(output.fileSystemRepresentation, O_WRONLY | O_CREAT | O_TRUNC | O_APPEND, 0600);
+        if (logFD < 0) { zeroLog(@"CLIENT_LOG_OPEN_FAILED"); return -114; }
+        int stdoutResult = dup2(logFD, STDOUT_FILENO);
+        int stderrResult = dup2(logFD, STDERR_FILENO);
+        close(logFD);
+        if (stdoutResult < 0 || stderrResult < 0) return -114;
+        setvbuf(stdout, NULL, _IONBF, 0);
         setvbuf(stderr, NULL, _IONBF, 0);
+        NSString *gameDirectory = config[@"gameDirectory"];
+        if (![gameDirectory isKindOfClass:NSString.class] ||
+            chdir(gameDirectory.fileSystemRepresentation) != 0) {
+            zeroLog(@"CLIENT_GAME_DIRECTORY_FAILED");
+            return -115;
+        }
+        fprintf(stderr, "NOVA_CLIENT_STDIO_READY\n");
         JavaVMOption options[128] = {0};
         for (NSUInteger i=0; i<opts.count; i++) options[i].optionString = (char*)[opts[i] UTF8String];
         JavaVMInitArgs init = {0};

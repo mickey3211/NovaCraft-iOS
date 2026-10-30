@@ -18,7 +18,7 @@ enum NovaZeroClient {
             let name = URL(fileURLWithPath: $0).lastPathComponent
             return name != "lwjgl.jar" && !name.hasPrefix("lwjgl-") && !name.hasPrefix("lwjgl3-") && !name.hasPrefix("lwjglx-")
         }
-        let classpath = (jars.map(\.path) + original).joined(separator: ":")
+        let classpath = ([bundle.appendingPathComponent("NovaZeroSmoke.jar").path] + jars.map(\.path) + original).joined(separator: ":")
         let game = root.appendingPathComponent("game")
         try FileManager.default.createDirectory(at: game, withIntermediateDirectories: true)
         var options = NovaGameRunner.normalizeJVMOptions(args.jvmArguments).filter {
@@ -31,8 +31,8 @@ enum NovaZeroClient {
                     "-Dorg.lwjgl.opengl.libname=\(native.appendingPathComponent("libmobileglues.dylib").path)",
                     "-Dorg.lwjgl.glfw.checkThread0=false", "-Dorg.lwjgl.system.allocator=system",
                     "-Duser.dir=\(game.path)", "-Duser.home=\(root.path)",
-                    "--enable-native-access=ALL-UNNAMED"]
-        let payload: [String: Any] = ["mainClass": args.mainClass, "options": options, "arguments": args.gameArguments]
+                    "--enable-native-access=ALL-UNNAMED", "-Dorg.lwjgl.util.DebugLoader=true"]
+        let payload: [String: Any] = ["mainClass": "dev.novacraft.client.NovaClientEntrypoint", "options": options, "arguments": [args.mainClass] + args.gameArguments, "gameDirectory": game.path]
         let data = try JSONSerialization.data(withJSONObject: payload)
         guard let json = String(data: data, encoding: .utf8) else { throw MinecraftClientError.message("Nie można przygotować startu gry.") }
         try await NovaClientSurface.shared.prepare()
