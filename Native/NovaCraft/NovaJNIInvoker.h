@@ -9,6 +9,7 @@ extern "C" {
 // tested NovaCraft Zero app). Runs a Java 21 classfile on a dedicated thread.
 // Returns 0 only if Java bytecode executed. Does not launch Minecraft.
 int nova_zero_run_smoke_test(const char *minecraft_version);
+int nova_zero_run_client(const char *configuration_json);
 
 // Runs Java main(String[]) in an already bundled, code-signed iOS JVM.
 // Returns 0 on success, negative values for bridge errors, or a JNI error code.

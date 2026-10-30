@@ -16,6 +16,7 @@ final class NovaCraftAppDelegate: NSObject, UIApplicationDelegate {
 struct NovaCraftApp: App {
     @UIApplicationDelegateAdaptor(NovaCraftAppDelegate.self) private var appDelegate
     @StateObject private var state = LauncherState()
+    @StateObject private var gameSurface = NovaClientSurface.shared
     @StateObject private var background = NovaBackgroundDownloads.shared
 
     var body: some Scene {
@@ -24,6 +25,9 @@ struct NovaCraftApp: App {
                 .environmentObject(state)
                 .environmentObject(background)
                 .preferredColorScheme(.dark)
+                .fullScreenCover(isPresented: Binding(get: { gameSurface.presented }, set: { _ in })) {
+                    NovaClientSurfaceScreen()
+                }
         }
     }
 }

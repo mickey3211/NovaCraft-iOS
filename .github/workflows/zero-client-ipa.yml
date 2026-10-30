@@ -1,0 +1,79 @@
+name: Build NovaCraft Zero client launch IPA
+on:
+  push:
+    branches: [work/zero-client-launch]
+    paths: ['Native/**', 'scripts/**', 'project.yml', '.github/workflows/zero-client-ipa.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  client:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 41031026986
+          name: NovaCraft-Zero-Runtime-Source-Build
+          path: ZeroIntegration
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 41017352230
+          name: NovaCraft-UIKit-GLFW-component-not-IPA
+          path: Components/glfw
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40863884566
+          name: NovaCraft-MobileGlues-iOS-component-not-IPA
+          path: Components/mobileglues
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 40596728048
+          name: upstream-ios-lwjgl-components-not-IPA
+          path: Components/lwjgl
+      - name: Prepare build tools and existing report resources
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          python3 -m venv "$RUNNER_TEMP/icons"
+          "$RUNNER_TEMP/icons/bin/pip" install pillow
+          "$RUNNER_TEMP/icons/bin/python" scripts/generate-app-icon.py
+          mkdir -p "$RUNNER_TEMP/classes"
+          javac --release 21 -d "$RUNNER_TEMP/classes" ZeroIntegration/Java/dev/novacraft/zero/NovaZeroSmoke.java
+          jar cf ZeroIntegration/Resources/NovaZeroSmoke.jar -C "$RUNNER_TEMP/classes" .
+      - name: Compile client launch integration
+        run: |
+          set -euo pipefail
+          xcodegen generate
+          xcodebuild -project NovaCraft.xcodeproj -scheme NovaCraft \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/NovaClient" CODE_SIGNING_ALLOWED=NO build \
+            2>&1 | tee "$RUNNER_TEMP/nova-client-build.log"
+      - name: Package and audit all native components
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/NovaClient/Build/Products/Release-iphoneos/NovaCraft.app"
+          bash scripts/package-zero-client.sh "$APP" Components 2>&1 | tee "$RUNNER_TEMP/nova-client-package.log"
+          mkdir -p "$RUNNER_TEMP/client-ipa/Payload" dist
+          ditto "$APP" "$RUNNER_TEMP/client-ipa/Payload/NovaCraft.app"
+          (cd "$RUNNER_TEMP/client-ipa" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Build21-Zero-Client-UNSIGNED.ipa" Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Build21-Zero-Client-UNSIGNED-IPA
+          path: dist/*.ipa
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NovaCraft-client-build-logs
+          path: ${{ runner.temp }}/nova-client-*.log

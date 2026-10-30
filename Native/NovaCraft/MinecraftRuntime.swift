@@ -24,20 +24,12 @@ struct NovaEngineRuntime: MinecraftRuntime {
 
     func launch(version: String, account: MinecraftAccount?, offlineNickname: String?) async throws {
         #if NOVA_ZERO_INTEGRATION
-        let diagnostic = await NovaZeroLaunchDiagnostics.run(version: version)
-        if diagnostic.version != version {
-            throw NovaEngineLaunchError.missingJavaAndRenderer(
-                "Raport dotyczy wersji \(diagnostic.version). Zamknij i ponownie otwórz aplikację, aby sprawdzić inną wersję."
-            )
+        let plan = try inspect(version: version)
+        guard plan.missingLibraries.isEmpty && plan.hasAssetIndex else {
+            throw NovaEngineLaunchError.incompleteInstallation(plan.summary)
         }
-        guard diagnostic.status == 0 else {
-            throw NovaEngineLaunchError.missingJavaAndRenderer(
-                "Nie udało się przygotować środowiska Java (kod \(diagnostic.status)). Szczegóły: Ustawienia → Raport diagnostyczny."
-            )
-        }
-        throw NovaEngineLaunchError.missingJavaAndRenderer(
-            "Zapisano raport uruchomienia Java Zero. Uruchamianie Minecrafta pozostaje zablokowane: integracja okna GLFW i grafiki OpenGL nie jest jeszcze gotowa. Szczegóły: Ustawienia → Raport diagnostyczny."
-        )
+        let args = try NovaLaunchArgumentBuilder.build(version: version, root: root, nickname: offlineNickname, account: account)
+        try await NovaZeroClient.launch(args, root: root)
         #else
         // The pure VM test must be possible without downloading Minecraft,
         // signing in to Microsoft, loading LWJGL or having an offline profile.

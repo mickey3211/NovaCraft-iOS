@@ -156,3 +156,78 @@ int nova_zero_run_smoke_test(const char *minecraft_version) {
         return 0;
     }
 }
+
+// Real client path. Called once on a dedicated Java thread after UIKit has
+// attached the game surface. Never run the smoke VM before this invocation.
+int nova_zero_run_client(const char *configurationJSON) {
+    @autoreleasepool {
+        if (!configurationJSON) return -110;
+        NSData *data = [[NSString stringWithUTF8String:configurationJSON] dataUsingEncoding:NSUTF8StringEncoding];
+        NSDictionary *config = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:nil] : nil;
+        if (![config isKindOfClass:NSDictionary.class]) return -110;
+        NSString *main = config[@"mainClass"];
+        NSArray *opts = config[@"options"], *arguments = config[@"arguments"];
+        if (![main isKindOfClass:NSString.class] || !main.length ||
+            ![opts isKindOfClass:NSArray.class] || opts.count > 128 ||
+            ![arguments isKindOfClass:NSArray.class] || arguments.count > 1024) return -110;
+        for (id s in opts) if (![s isKindOfClass:NSString.class]) return -110;
+        for (id s in arguments) if (![s isKindOfClass:NSString.class]) return -110;
+        if (atomic_exchange(&zeroStarted, true)) return -90;
+        [@"NovaCraft client launch\n" writeToFile:zeroLogURL() atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        NSString *documents = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *output = [documents stringByAppendingPathComponent:@"NovaCraft-java-output.log"];
+        freopen(output.fileSystemRepresentation, "w", stderr);
+        setvbuf(stderr, NULL, _IONBF, 0);
+        JavaVMOption options[128] = {0};
+        for (NSUInteger i=0; i<opts.count; i++) options[i].optionString = (char*)[opts[i] UTF8String];
+        JavaVMInitArgs init = {0};
+        init.version = JNI_VERSION_1_8; init.nOptions = (jint)opts.count;
+        init.options = options; init.ignoreUnrecognized = JNI_FALSE;
+        JavaVM *vm = NULL; JNIEnv *env = NULL;
+        zeroLog(@"CLIENT_STEP: JNI_CreateJavaVM");
+        jint result = JNI_CreateJavaVM(&vm, (void**)&env, &init);
+        if (result != JNI_OK || !env) {
+            zeroLog([NSString stringWithFormat:@"CLIENT_JVM_FAILED: %d", result]);
+            return -111;
+        }
+        NSString *className = [main stringByReplacingOccurrencesOfString:@"." withString:@"/"];
+        jclass entry = (*env)->FindClass(env, className.UTF8String);
+        if (!entry || (*env)->ExceptionCheck(env)) goto java_failure;
+        jmethodID method = (*env)->GetStaticMethodID(env, entry, "main", "([Ljava/lang/String;)V");
+        if (!method || (*env)->ExceptionCheck(env)) goto java_failure;
+        jclass stringClass = (*env)->FindClass(env, "java/lang/String");
+        if (!stringClass) goto java_failure;
+        jobjectArray array = (*env)->NewObjectArray(env, (jsize)arguments.count, stringClass, NULL);
+        if (!array) goto java_failure;
+        for (NSUInteger i=0; i<arguments.count; i++) {
+            NSString *value = arguments[i];
+            // JNI NewStringUTF expects modified UTF-8, so preserve all Unicode
+            // (including supplementary characters) through UTF-16 instead.
+            NSUInteger length = value.length;
+            unichar *chars = calloc(MAX(length, 1), sizeof(unichar));
+            if (!chars) return -113;
+            [value getCharacters:chars range:NSMakeRange(0, length)];
+            jstring text = (*env)->NewString(env, chars, (jsize)length);
+            free(chars);
+            if (!text) goto java_failure;
+            (*env)->SetObjectArrayElement(env, array, (jsize)i, text);
+            (*env)->DeleteLocalRef(env, text);
+            if ((*env)->ExceptionCheck(env)) goto java_failure;
+        }
+        zeroLog(@"MINECRAFT_EXECUTION: invoking main(String[]); this does not confirm rendering");
+        (*env)->CallStaticVoidMethod(env, entry, method, array);
+        if ((*env)->ExceptionCheck(env)) goto java_failure;
+        (*env)->DeleteLocalRef(env, array);
+        (*env)->DeleteLocalRef(env, stringClass);
+        (*env)->DeleteLocalRef(env, entry);
+        zeroLog(@"MINECRAFT_MAIN_RETURNED: 0");
+        return 0;
+java_failure:
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionDescribe(env);
+            (*env)->ExceptionClear(env);
+        }
+        zeroLog(@"MINECRAFT_JAVA_EXCEPTION: see NovaCraft-java-output.log");
+        return -112;
+    }
+}
