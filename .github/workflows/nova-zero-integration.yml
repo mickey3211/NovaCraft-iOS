@@ -1,13 +1,13 @@
 name: Build real NovaCraft SwiftUI with statically linked Zero JVM (developer test)
 on:
   push:
-    branches: [nova-zero-integration, work/zero-client-readiness]
+    branches: [work/complete-zero-runtime]
     paths:
       - ".github/workflows/nova-zero-integration.yml"
       - "ZeroIntegration/**"
       - "Native/NovaCraft/**"
       - "project.yml"
-      - "scripts/generate-app-icon.py"
+      - "scripts/**"
   workflow_dispatch:
 
 permissions:
@@ -20,7 +20,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Install Java compiler and XcodeGen
@@ -31,28 +31,37 @@ jobs:
       - name: Install XcodeGen and generate NovaCraft icon
         run: |
           set -euo pipefail
-          brew install xcodegen
+          brew install xcodegen autoconf make
           python3 -m venv "$RUNNER_TEMP/icons"
           "$RUNNER_TEMP/icons/bin/python" -m pip install --disable-pip-version-check pillow
           "$RUNNER_TEMP/icons/bin/python" scripts/generate-app-icon.py
-      - name: Fetch verified official OpenJDK Mobile Zero and Java modules
+      - name: Restore matching macOS build tools
+        id: host-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/nova-host-jdk
+          key: nova-host-jdk-v1-c1ed06aaef34c8dccf71e236d1ffa20918a77cfb-${{ runner.os }}-${{ runner.arch }}
+      - name: Build complete matching Zero runtime from pinned OpenJDK sources
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/zero-static" "$RUNNER_TEMP/zero-resources"
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/OpenJDK.xcframework.zip" \
-            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/OpenJDK.xcframework.zip
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/java_bundle-device.zip" \
-            https://github.com/openjdk-mobile/ios-tools/releases/download/snapshot/java_bundle-device.zip
-          echo "ae8e22142e45e5c1e9e8e3541829f3cc00584658eb21eeeb0d3612e3fbaf7c9f  $RUNNER_TEMP/OpenJDK.xcframework.zip" | shasum -a 256 -c -
-          echo "37387a48bdd7f1ce1d3a38e88356e61288673c91b42ef27cf1b71d27e05cc54a  $RUNNER_TEMP/java_bundle-device.zip" | shasum -a 256 -c -
-          unzip -q "$RUNNER_TEMP/OpenJDK.xcframework.zip" -d "$RUNNER_TEMP/zero-static"
-          unzip -q "$RUNNER_TEMP/java_bundle-device.zip" -d "$RUNNER_TEMP/zero-resources"
-          framework="$(find "$RUNNER_TEMP/zero-static" -maxdepth 4 -type d -name OpenJDK.xcframework -print -quit)"
-          modules="$(find "$RUNNER_TEMP/zero-resources" -maxdepth 5 -name modules -print -quit)"
-          test -n "$framework" && test -n "$modules"
-          mkdir -p ZeroIntegration/Resources/lib/lib
-          ditto "$framework" ZeroIntegration/OpenJDK.xcframework
-          ditto "$modules" ZeroIntegration/Resources/lib/lib/modules
+          bash scripts/build-nova-zero-runtime.sh 2>&1 | tee "$RUNNER_TEMP/zero-runtime-build.log"
+      - name: Cache successfully produced host tools even if iOS build fails
+        if: always() && steps.host-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/nova-host-jdk
+          key: nova-host-jdk-v1-c1ed06aaef34c8dccf71e236d1ffa20918a77cfb-${{ runner.os }}-${{ runner.arch }}
+      - name: Preserve built runtime for reproducibility
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaCraft-Zero-Runtime-Source-Build
+          path: |
+            ZeroIntegration/OpenJDK.xcframework
+            ZeroIntegration/runtime-native-symbols.xcconfig
+            ZeroIntegration/Resources/lib
+            ZeroIntegration/Resources/runtime-modules.txt
+            ZeroIntegration/Resources/RuntimeLicenses
+          retention-days: 14
       - name: Compile original Java smoke test to Java21 class bytecode
         run: |
           set -euo pipefail
@@ -87,8 +96,11 @@ jobs:
               base="Payload/NovaCraft.app/"
               assert base+"NovaZeroSmoke.jar" in names
               assert base+"lib/lib/modules" in names
+              assert base+"lib/lib/tzdb.dat" in names
+              assert base+"lib/lib/security/cacerts" in names
+              assert base+"lib/conf/security/java.security" in names
               info=plistlib.loads(z.read(base+"Info.plist"))
-              assert info["CFBundleVersion"]=="19"
+              assert info["CFBundleVersion"]=="20"
               assert info["CFBundleIdentifier"]=="pl.novacraft.zero.integrated"
               assert info["CFBundleDisplayName"]=="NovaCraft Z-Dev"
               assert b"NOVA_ZERO_INTEGRATED_OK" in z.read(base+"NovaCraft")
@@ -108,7 +120,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NovaCraft-Zero-Integration-Xcode-Errors
-          path: ${{ runner.temp }}/nova-zero-xcode.log
+          path: |
+            ${{ runner.temp }}/nova-zero-xcode.log
+            ${{ runner.temp }}/zero-runtime-build.log
+            ${{ runner.temp }}/nova-zero-source/mobile/build/*/configure.log
+            ${{ runner.temp }}/nova-zero-source/mobile/build/*/make-support/failure-summary
           if-no-files-found: ignore
           retention-days: 7
       - name: Publish actual Zero-integrated unsigned IPA
