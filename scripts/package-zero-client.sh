@@ -33,5 +33,10 @@ curl --fail --location --retry 3 --max-time 60 \
   https://raw.githubusercontent.com/google/angle/af8a791f61e42600c6910280393c5183f701bfd1/LICENSE \
   -o "$APP/ThirdPartyNotices/ANGLE-LICENSE"
 printf 'ANGLE af8a791f61e42600c6910280393c5183f701bfd1\nBinary build: https://github.com/jeremyfa/build-angle/releases/tag/angle-af8a791\n' > "$APP/ThirdPartyNotices/ANGLE-SOURCES.txt"
+# Match each dylib's install name to its packaged file (upstream FreeType uses
+# libfreetype.6.dylib while LWJGL's configured filename is libfreetype.dylib).
+for dylib in "$APP/Frameworks/"*.dylib; do
+  install_name_tool -id "@rpath/$(basename "$dylib")" "$dylib"
+done
 # Fail for missing non-system dependencies instead of publishing a broken closure.
 python3 scripts/audit-zero-client.py "$APP"
