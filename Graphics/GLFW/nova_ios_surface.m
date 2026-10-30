@@ -6,6 +6,7 @@
 #include "nova_ios_surface.h"
 #include <pthread.h>
 #include <time.h>
+#include <stdio.h>
 
 // UIKit produces events. The Java/GLFW thread alone consumes them and invokes
 // callbacks. Never call a Java callback from a UIKit touch/layout handler.

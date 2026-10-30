@@ -5,12 +5,15 @@ import Foundation
 struct NovaZeroIntegratedScreen: View {
     @State private var report = "Brak raportu. Pobierz wybraną wersję Minecraft i naciśnij Graj na ekranie Start."
     @State private var hasReport = false
-    private var logURL: URL { NovaZeroLaunchDiagnostics.logURL }
+    private var logURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("NovaCraft-launch-report.txt")
+    }
 
     var body: some View {
         Form {
             Section("Ostatnia próba uruchomienia") {
-                Text("Sprawdzenia wykonują się automatycznie po naciśnięciu Graj. Ten ekran nie uruchamia dodatkowych testów.")
+                Text("Dziennik ostatniego uruchomienia gry. Przed udostępnieniem sprawdź, czy nie zawiera danych prywatnych.")
                     .font(.footnote).foregroundStyle(.secondary)
                 Text(report)
                     .font(.system(.caption, design: .monospaced))
@@ -26,10 +29,31 @@ struct NovaZeroIntegratedScreen: View {
         }
         .navigationTitle("Raport diagnostyczny")
         .onAppear {
-            if let saved = try? String(contentsOf: logURL, encoding: .utf8) {
-                report = saved
-                hasReport = true
+            let documents = logURL.deletingLastPathComponent()
+            let gameLog = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("NovaCraft/game/logs/latest.log")
+            let sources = [NovaZeroLaunchDiagnostics.logURL,
+                           documents.appendingPathComponent("NovaCraft-java-output.log"), gameLog]
+            var sections: [String] = []
+            for source in sources {
+                guard let file = try? FileHandle(forReadingFrom: source) else { continue }
+                defer { try? file.close() }
+                do {
+                    let size = try file.seekToEnd()
+                    let start = size > 1_048_576 ? size - 1_048_576 : 0
+                    try file.seek(toOffset: start)
+                    let bytes = try file.readToEnd() ?? Data()
+                    guard !bytes.isEmpty else { continue }
+                    let truncation = start > 0 ? "(ostatni 1 MiB)\n" : ""
+                    sections.append("--- \(source.lastPathComponent) ---\n" + truncation + String(decoding: bytes, as: UTF8.self))
+                } catch { continue }
             }
+            guard !sections.isEmpty else { return }
+            report = sections.joined(separator: "\n\n")
+            do {
+                try report.write(to: logURL, atomically: true, encoding: .utf8)
+                hasReport = true
+            } catch { hasReport = false }
         }
     }
 }
