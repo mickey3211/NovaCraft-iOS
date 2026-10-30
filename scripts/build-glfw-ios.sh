@@ -27,6 +27,20 @@ xcrun nm -gUj "$LIB" > "$OUT/exports.txt"
 for symbol in _glfwCreateWindow _glfwGetProcAddress _glfwSwapBuffers _glfwPollEvents _nova_glfw_create_view; do
   grep -Fx "$symbol" "$OUT/exports.txt"
 done
+# Verify every eagerly loaded GLFW entrypoint in our exact LWJGL revision.
+LWJGL_REV=39272d4d0ca119379024e3ca7207699fd3fce237
+curl --fail --location --retry 3 --max-time 60 \
+  "https://raw.githubusercontent.com/PojavLauncherTeam/lwjgl3/$LWJGL_REV/modules/lwjgl/glfw/src/generated/java/org/lwjgl/glfw/GLFW.java" \
+  -o "$WORK/GLFW.java"
+python3 - "$WORK/GLFW.java" "$OUT/exports.txt" <<'PYTHON'
+import re,sys
+from pathlib import Path
+required={'_'+s for s in re.findall(r'apiGetFunctionAddress\(GLFW, "([^"]+)"',Path(sys.argv[1]).read_text())}
+assert len(required) >= 100, 'Unexpected LWJGL source layout'
+missing=required-set(Path(sys.argv[2]).read_text().split())
+assert not missing, f'Missing LWJGL entrypoints: {sorted(missing)}'
+print(f'Validated {len(required)} LWJGL GLFW entrypoints')
+PYTHON
 cp "$LIB" "$OUT/libglfw.dylib"
 install_name_tool -id @rpath/libglfw.dylib "$OUT/libglfw.dylib"
 cp "$WORK/source/LICENSE.md" "$OUT/GLFW-LICENSE.md"

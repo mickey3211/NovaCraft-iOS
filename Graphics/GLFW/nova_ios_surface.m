@@ -46,6 +46,22 @@ static void enqueue(NovaEvent event) {
 @implementation NovaGLFWView
 + (Class)layerClass { return CAMetalLayer.class; }
 - (BOOL)canBecomeFirstResponder { return YES; }
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationFocusChanged:)
+            name:UIApplicationWillResignActiveNotification object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationFocusChanged:)
+            name:UIApplicationDidBecomeActiveNotification object:nil];
+    }
+    return self;
+}
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; }
+- (void)applicationFocusChanged:(NSNotification*)notification {
+    BOOL active = [notification.name isEqualToString:UIApplicationDidBecomeActiveNotification];
+    if (!active) self.primaryTouch = nil;
+    enqueue((NovaEvent){.kind=Focus, .a=active && self.window != nil});
+}
 - (void)layoutSubviews {
     [super layoutSubviews];
     CGFloat scale = self.window.screen.scale ?: UIScreen.mainScreen.scale;
@@ -90,10 +106,14 @@ void* nova_glfw_create_view(void) {
     if (!NSThread.isMainThread) return NULL;
     pthread_mutex_lock(&lock);
     if (surface || owner) { pthread_mutex_unlock(&lock); return NULL; }
+    pthread_mutex_unlock(&lock);
+    // UIKit construction can call layout methods; never hold the event lock.
     NovaGLFWView* view = [[NovaGLFWView alloc] initWithFrame:CGRectZero];
     view.multipleTouchEnabled = YES;
     view.opaque = YES;
+    pthread_mutex_lock(&lock);
     surface = (CAMetalLayer*)view.layer;
+    surfaceWidth = surfaceHeight = 0; surfaceScale = 1;
     first = count = 0; overflow = wakePending = closing = NO;
     pthread_mutex_unlock(&lock);
     return (__bridge_retained void*)view;
@@ -177,7 +197,10 @@ void novaSurfacePoll(void) {
     pthread_mutex_unlock(&lock);
     if (!window) return;
     if (close) { _glfwInputWindowCloseRequest(window); return; }
-    if (reset) { _glfwInputWindowFocus(window, GLFW_FALSE); return; }
+    if (reset) {
+        _glfw.null.focusedWindow = NULL;
+        _glfwInputWindowFocus(window, GLFW_FALSE); return;
+    }
     for (unsigned int i=0; i<n; ++i) {
         // A callback may destroy the window; never reuse it afterwards.
         if (!alive(window)) break;
@@ -191,7 +214,9 @@ void novaSurfacePoll(void) {
             case Key: _glfwInputKey(window, e.a, e.b, e.c, e.d); break;
             case Character: _glfwInputChar(window, (unsigned int)e.a, 0, GLFW_TRUE); break;
             case Scroll: _glfwInputScroll(window, e.x, e.y); break;
-            case Focus: _glfwInputWindowFocus(window, e.a); break;
+            case Focus:
+                _glfw.null.focusedWindow = e.a ? window : NULL;
+                _glfwInputWindowFocus(window, e.a); break;
             case Close: _glfwInputWindowCloseRequest(window); break;
             case Resize: {
                 int w,h; float scale; novaSurfaceMetrics(&w,&h,&scale);
