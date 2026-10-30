@@ -53,3 +53,32 @@ if s.count(old) != 1:
     raise SystemExit('Pinned bsd_zero W^X block changed; review source before patching')
 p.write_text(s.replace(old, new))
 print('Updated bsd_zero W^X bookkeeping for the pinned shared runtime API')
+
+# NativeLibraries.c recognizes built-ins through JNI_OnLoad_<library> and
+# bypasses JVM_LoadLibrary for those. External LWJGL JNI libraries must receive
+# their own dlopen handle, even when libjvm itself is statically linked. Apple's
+# default process handle uses RTLD_FIRST and cannot resolve these libraries.
+p = root / 'src/hotspot/os/bsd/os_bsd.cpp'
+s = p.read_text()
+old = '''#ifdef __APPLE__
+void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
+  if (is_vm_statically_linked()) {
+    return os::get_default_process_handle();
+  }
+
+  log_info(os)("attempting shared library load of %s", filename);'''
+new = '''#ifdef __APPLE__
+void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
+#ifndef __IOS__
+  if (is_vm_statically_linked()) {
+    return os::get_default_process_handle();
+  }
+#endif
+  // NovaCraft iOS: built-in JNI libraries are resolved by NativeLibraries.c.
+  // External signed app libraries need their real handle and JNI_OnLoad.
+  // Keep dlopen errors intact; never report the process as a missing library.
+  log_info(os)("attempting shared library load of %s", filename);'''
+if s.count(old) != 1:
+    raise SystemExit('Pinned Apple dll_load block changed; review before patching')
+p.write_text(s.replace(old, new))
+print('Enabled real external JNI library handles for statically linked iOS Zero')
