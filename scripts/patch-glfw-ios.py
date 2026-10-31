@@ -89,6 +89,25 @@ replace('src/null_monitor.c','''    if (xscale)
     if (xscale) *xscale = scale;
     if (yscale) *yscale = scale;''')
 replace('src/egl_context.c', '#include "internal.h"', '#include "internal.h"\n// NovaCraft: record successful EGL presentation.\n#include "nova_ios_surface.h"')
+replace('src/egl_context.c', '''    if (window->context.egl.client)
+    {
+        GLFWglproc proc = (GLFWglproc)''', '''    // NovaCraft: desktop GL must resolve against the translation library first.
+    // MobileGlues' Apple eglGetProcAddress -> glXGetProcAddress uses RTLD_NEXT,
+    // which can expose ANGLE's GLES functions (including its ES version string).
+    // KHR_get_all_proc_addresses otherwise skips loading the GL client entirely.
+    // Keep GLFW's version/extension validation intact; do not spoof capabilities.
+    if (window->context.client == GLFW_OPENGL_API &&
+        strncmp(procname, "gl", 2) == 0)
+    {
+        GLFWglproc translated = (GLFWglproc)
+            _glfwPlatformGetModuleSymbol(_glfw.egl.handle, procname);
+        if (translated)
+            return translated;
+    }
+
+    if (window->context.egl.client)
+    {
+        GLFWglproc proc = (GLFWglproc)''')
 replace('src/egl_context.c', '    eglSwapBuffers(_glfw.egl.display, window->context.egl.surface);', '    if (eglSwapBuffers(_glfw.egl.display, window->context.egl.surface))\n        novaSurfaceFramePresented();')
 p=root/'src/CMakeLists.txt'
 p.write_text(p.read_text()+'''
