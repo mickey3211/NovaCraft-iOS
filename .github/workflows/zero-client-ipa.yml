@@ -40,6 +40,12 @@ jobs:
           run-id: 40596728048
           name: upstream-ios-lwjgl-components-not-IPA
           path: Components/lwjgl
+      - name: Build OpenAL Soft for iOS CoreAudio
+        run: |
+          set -euo pipefail
+          bash scripts/build-openal-ios.sh 2>&1 | tee "$RUNNER_TEMP/nova-client-openal.log"
+          mkdir -p Components/openal
+          cp -R "$RUNNER_TEMP/nova-openal-component/." Components/openal/
       - name: Prepare build tools and existing report resources
         run: |
           set -euo pipefail
@@ -65,10 +71,10 @@ jobs:
           bash scripts/package-zero-client.sh "$APP" Components 2>&1 | tee "$RUNNER_TEMP/nova-client-package.log"
           mkdir -p "$RUNNER_TEMP/client-ipa/Payload" dist
           ditto "$APP" "$RUNNER_TEMP/client-ipa/Payload/NovaCraft.app"
-          (cd "$RUNNER_TEMP/client-ipa" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Build23-Zero-Client-UNSIGNED.ipa" Payload)
+          (cd "$RUNNER_TEMP/client-ipa" && zip -qry "$GITHUB_WORKSPACE/dist/NovaCraft-Build24-Zero-Client-UNSIGNED.ipa" Payload)
       - uses: actions/upload-artifact@v4
         with:
-          name: NovaCraft-Build23-Zero-Client-UNSIGNED-IPA
+          name: NovaCraft-Build24-Zero-Client-UNSIGNED-IPA
           path: dist/*.ipa
           if-no-files-found: error
       - uses: actions/upload-artifact@v4

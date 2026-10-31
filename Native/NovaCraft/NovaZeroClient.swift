@@ -5,7 +5,7 @@ enum NovaZeroClient {
         let bundle = Bundle.main.bundleURL
         let native = bundle.appendingPathComponent("Frameworks")
         let jarRoot = bundle.appendingPathComponent("LWJGL-iOS")
-        let required = ["libglfw.dylib", "libmobileglues.dylib", "liblwjgl.dylib", "liblwjgl_opengl.dylib", "liblwjgl_stb.dylib", "libEGL.framework/libEGL", "libGLESv2.framework/libGLESv2"]
+        let required = ["libopenal.dylib", "libglfw.dylib", "libmobileglues.dylib", "liblwjgl.dylib", "liblwjgl_opengl.dylib", "liblwjgl_stb.dylib", "libEGL.framework/libEGL", "libGLESv2.framework/libGLESv2"]
         for file in required where !FileManager.default.fileExists(atPath: native.appendingPathComponent(file).path) {
             throw MinecraftClientError.message("Brak biblioteki w IPA: \(file).")
         }
@@ -29,6 +29,7 @@ enum NovaZeroClient {
                     "-Dorg.lwjgl.librarypath=\(native.path)",
                     "-Dorg.lwjgl.glfw.libname=\(native.appendingPathComponent("libglfw.dylib").path)",
                     "-Dorg.lwjgl.opengl.libname=\(native.appendingPathComponent("libmobileglues.dylib").path)",
+                    "-Dorg.lwjgl.openal.libname=\(native.appendingPathComponent("libopenal.dylib").path)",
                     "-Dorg.lwjgl.glfw.checkThread0=false", "-Dorg.lwjgl.system.allocator=system",
                     "-Duser.dir=\(game.path)", "-Duser.home=\(root.path)",
                     "--enable-native-access=ALL-UNNAMED", "-Dorg.lwjgl.util.DebugLoader=true"]

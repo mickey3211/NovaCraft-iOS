@@ -5,6 +5,10 @@ COMPONENTS="${2:?component directory}"
 mkdir -p "$APP/Frameworks" "$APP/LWJGL-iOS" "$APP/ThirdPartyNotices"
 cp "$COMPONENTS/glfw/libglfw.dylib" "$APP/Frameworks/"
 cp "$COMPONENTS/mobileglues/libmobileglues.dylib" "$APP/Frameworks/"
+cp "$COMPONENTS/openal/libopenal.dylib" "$APP/Frameworks/"
+cp "$COMPONENTS/openal/OpenAL-Soft-LICENSE" "$APP/ThirdPartyNotices/"
+cp "$COMPONENTS/openal/SOURCES.txt" "$APP/ThirdPartyNotices/OpenAL-Soft-SOURCES.txt"
+cp "$COMPONENTS/openal/openal-soft-source.tar.gz" "$APP/ThirdPartyNotices/"
 # Package only modules used by the vanilla GL client; do not include Vulkan/VMA.
 for name in lwjgl lwjgl_opengl lwjgl_stb freetype; do
   cp "$COMPONENTS/lwjgl/native/lib${name}.dylib" "$APP/Frameworks/"
